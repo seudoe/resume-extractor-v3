@@ -1,0 +1,765 @@
+{
+  "$defs": {
+    "Address": {
+      "properties": {
+        "city": {
+          "default": "",
+          "title": "City",
+          "type": "string"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "State"
+        },
+        "country": {
+          "default": "",
+          "title": "Country",
+          "type": "string"
+        },
+        "postal_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Postal Code"
+        }
+      },
+      "title": "Address",
+      "type": "object"
+    },
+    "Affiliation": {
+      "properties": {
+        "organization": {
+          "default": "",
+          "title": "Organization",
+          "type": "string"
+        },
+        "role": {
+          "default": "",
+          "title": "Role",
+          "type": "string"
+        },
+        "type": {
+          "default": "",
+          "title": "Type",
+          "type": "string"
+        },
+        "impact": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Impact",
+          "type": "array"
+        },
+        "period": {
+          "$ref": "#/$defs/DateRange",
+          "default": {
+            "start": "",
+            "end": null,
+            "isCurrent": false
+          }
+        }
+      },
+      "title": "Affiliation",
+      "type": "object"
+    },
+    "Award": {
+      "properties": {
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "issuingBody": {
+          "default": "",
+          "title": "Issuingbody",
+          "type": "string"
+        },
+        "date": {
+          "default": "",
+          "title": "Date",
+          "type": "string"
+        },
+        "justification": {
+          "default": "",
+          "title": "Justification",
+          "type": "string"
+        }
+      },
+      "title": "Award",
+      "type": "object"
+    },
+    "Certification": {
+      "properties": {
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "issuer": {
+          "default": "",
+          "title": "Issuer",
+          "type": "string"
+        },
+        "skillsEarned": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Skillsearned",
+          "type": "array"
+        },
+        "type": {
+          "default": "",
+          "title": "Type",
+          "type": "string"
+        },
+        "date": {
+          "default": "",
+          "title": "Date",
+          "type": "string"
+        }
+      },
+      "title": "Certification",
+      "type": "object"
+    },
+    "DateRange": {
+      "properties": {
+        "start": {
+          "default": "",
+          "title": "Start",
+          "type": "string"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "isCurrent": {
+          "default": false,
+          "title": "Iscurrent",
+          "type": "boolean"
+        }
+      },
+      "title": "DateRange",
+      "type": "object"
+    },
+    "EducationField": {
+      "properties": {
+        "type": {
+          "default": "",
+          "title": "Type",
+          "type": "string"
+        },
+        "course": {
+          "default": "",
+          "title": "Course",
+          "type": "string"
+        }
+      },
+      "title": "EducationField",
+      "type": "object"
+    },
+    "ExtraLink": {
+      "properties": {
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "link": {
+          "default": "",
+          "title": "Link",
+          "type": "string"
+        }
+      },
+      "title": "ExtraLink",
+      "type": "object"
+    },
+    "Interest": {
+      "properties": {
+        "activity": {
+          "default": "",
+          "title": "Activity",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "commitmentMetric": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commitmentmetric"
+        }
+      },
+      "title": "Interest",
+      "type": "object"
+    },
+    "Language": {
+      "properties": {
+        "lang": {
+          "default": "",
+          "title": "Lang",
+          "type": "string"
+        },
+        "proficiency": {
+          "default": "",
+          "title": "Proficiency",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        }
+      },
+      "title": "Language",
+      "type": "object"
+    },
+    "Project": {
+      "properties": {
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        },
+        "role": {
+          "default": "",
+          "title": "Role",
+          "type": "string"
+        },
+        "links": {
+          "$ref": "#/$defs/ProjectLinks",
+          "default": {
+            "repo": "",
+            "live": null,
+            "demo": null
+          }
+        },
+        "techStack": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Techstack",
+          "type": "array"
+        },
+        "problemStatement": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Problemstatement"
+        },
+        "metrics": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Metrics",
+          "type": "array"
+        },
+        "technicalChallenges": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Technicalchallenges",
+          "type": "array"
+        },
+        "description": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Description",
+          "type": "array"
+        },
+        "architecture": {
+          "default": "",
+          "title": "Architecture",
+          "type": "string"
+        }
+      },
+      "title": "Project",
+      "type": "object"
+    },
+    "ProjectLinks": {
+      "properties": {
+        "repo": {
+          "default": "",
+          "title": "Repo",
+          "type": "string"
+        },
+        "live": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Live"
+        },
+        "demo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Demo"
+        }
+      },
+      "title": "ProjectLinks",
+      "type": "object"
+    },
+    "Publication": {
+      "properties": {
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        },
+        "platform": {
+          "default": "",
+          "title": "Platform",
+          "type": "string"
+        },
+        "type": {
+          "default": "paper",
+          "enum": [
+            "paper",
+            "article",
+            "talk"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "link": {
+          "default": "",
+          "title": "Link",
+          "type": "string"
+        },
+        "keywords": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Keywords",
+          "type": "array"
+        },
+        "date": {
+          "default": "",
+          "title": "Date",
+          "type": "string"
+        }
+      },
+      "title": "Publication",
+      "type": "object"
+    },
+    "ResumeEducation": {
+      "properties": {
+        "institution": {
+          "default": "",
+          "title": "Institution",
+          "type": "string"
+        },
+        "field": {
+          "$ref": "#/$defs/EducationField",
+          "default": {
+            "type": "",
+            "course": ""
+          }
+        },
+        "period": {
+          "$ref": "#/$defs/DateRange",
+          "default": {
+            "start": "",
+            "end": null,
+            "isCurrent": false
+          }
+        },
+        "output": {
+          "default": "",
+          "title": "Output",
+          "type": "string"
+        }
+      },
+      "title": "ResumeEducation",
+      "type": "object"
+    },
+    "ResumeMetaDetails": {
+      "properties": {
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "phone_no": {
+          "default": "",
+          "title": "Phone No",
+          "type": "string"
+        },
+        "gender": {
+          "anyOf": [
+            {
+              "enum": [
+                "Male",
+                "Female",
+                "Other",
+                "Prefer Not to Say"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gender"
+        },
+        "email": {
+          "default": "",
+          "title": "Email",
+          "type": "string"
+        },
+        "github_profile": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Github Profile"
+        },
+        "linkedin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Linkedin"
+        },
+        "address": {
+          "$ref": "#/$defs/Address",
+          "default": {
+            "city": "",
+            "state": null,
+            "country": "",
+            "postal_code": null
+          }
+        },
+        "extra_links": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ExtraLink"
+          },
+          "title": "Extra Links",
+          "type": "array"
+        }
+      },
+      "title": "ResumeMetaDetails",
+      "type": "object"
+    },
+    "Skill": {
+      "properties": {
+        "field": {
+          "default": "",
+          "title": "Field",
+          "type": "string"
+        },
+        "yearsOfExperience": {
+          "default": 0,
+          "title": "Yearsofexperience",
+          "type": "number"
+        },
+        "lastUsed": {
+          "default": "",
+          "title": "Lastused",
+          "type": "string"
+        },
+        "tools": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SkillTool"
+          },
+          "title": "Tools",
+          "type": "array"
+        }
+      },
+      "title": "Skill",
+      "type": "object"
+    },
+    "SkillTool": {
+      "properties": {
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        }
+      },
+      "title": "SkillTool",
+      "type": "object"
+    },
+    "WorkHistory": {
+      "properties": {
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        },
+        "company": {
+          "default": "",
+          "title": "Company",
+          "type": "string"
+        },
+        "location": {
+          "default": "",
+          "title": "Location",
+          "type": "string"
+        },
+        "type": {
+          "default": "job",
+          "enum": [
+            "job",
+            "internship",
+            "volunteer",
+            "co-op"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "period": {
+          "$ref": "#/$defs/DateRange",
+          "default": {
+            "start": "",
+            "end": null,
+            "isCurrent": false
+          }
+        },
+        "responsibilities": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Responsibilities",
+          "type": "array"
+        },
+        "achievements": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Achievements",
+          "type": "array"
+        }
+      },
+      "title": "WorkHistory",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "summary": {
+      "default": "",
+      "title": "Summary",
+      "type": "string"
+    },
+    "workHistory": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/WorkHistory"
+      },
+      "title": "Workhistory",
+      "type": "array"
+    },
+    "education": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ResumeEducation"
+      },
+      "title": "Education",
+      "type": "array"
+    },
+    "skills": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Skill"
+      },
+      "title": "Skills",
+      "type": "array"
+    },
+    "projects": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Project"
+      },
+      "title": "Projects",
+      "type": "array"
+    },
+    "certifications": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Certification"
+      },
+      "title": "Certifications",
+      "type": "array"
+    },
+    "languages": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Language"
+      },
+      "title": "Languages",
+      "type": "array"
+    },
+    "publications": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Publication"
+      },
+      "title": "Publications",
+      "type": "array"
+    },
+    "affiliations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Affiliation"
+      },
+      "title": "Affiliations",
+      "type": "array"
+    },
+    "awards": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Award"
+      },
+      "title": "Awards",
+      "type": "array"
+    },
+    "interests": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Interest"
+      },
+      "title": "Interests",
+      "type": "array"
+    },
+    "metaDetails": {
+      "$ref": "#/$defs/ResumeMetaDetails",
+      "default": {
+        "name": "",
+        "phone_no": "",
+        "gender": null,
+        "email": "",
+        "github_profile": null,
+        "linkedin": null,
+        "address": {
+          "city": "",
+          "country": "",
+          "postal_code": null,
+          "state": null
+        },
+        "extra_links": []
+      }
+    },
+    "bert_vector": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Bert Vector"
+    },
+    "tfidf__vector": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tfidf  Vector"
+    }
+  },
+  "title": "ParsedResumeData",
+  "type": "object"
+}

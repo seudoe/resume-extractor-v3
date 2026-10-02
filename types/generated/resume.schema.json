@@ -728,36 +728,6 @@
         },
         "extra_links": []
       }
-    },
-    "bert_vector": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "number"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Bert Vector"
-    },
-    "tfidf__vector": {
-      "anyOf": [
-        {
-          "items": {
-            "type": "number"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Tfidf  Vector"
     }
   },
   "title": "ParsedResumeData",

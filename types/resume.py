@@ -50,5 +50,3 @@ class ParsedResumeData(BaseModel):
     awards: list[Award] = []
     interests: list[Interest] = []
     metaDetails: ResumeMetaDetails = ResumeMetaDetails()
-    bert_vector: list[float] | None = None
-    tfidf__vector: list[float] | None = None

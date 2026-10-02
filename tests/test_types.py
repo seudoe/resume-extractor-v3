@@ -54,9 +54,7 @@ def test_sample_round_trip():
             "linkedin": None,
             "address": {"city": "Pune", "state": "MH", "country": "India", "postal_code": "411001"},
             "extra_links": [{"name": "Portfolio", "link": "https://alexj.dev"}],
-        },
-        "bert_vector": None,
-        "tfidf__vector": None,
+        }
     }
 
     parsed = ParsedResumeData.model_validate(sample)

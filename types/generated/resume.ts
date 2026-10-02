@@ -136,6 +136,4 @@ export interface ParsedResumeData {
   awards?: Award[];
   interests?: Interest[];
   metaDetails?: ResumeMetaDetails;
-  bert_vector?: number[] | null;
-  tfidf__vector?: number[] | null;
 }

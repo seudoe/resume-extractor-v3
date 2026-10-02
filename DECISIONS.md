@@ -88,3 +88,74 @@ reference the entry they replace rather than deleting it.
   reportlab, etc.) — no single package crossed the 500 MB threshold in
   PROMPT.md §1.3, so this wasn't treated as needing a checkpoint; flagged here
   for visibility since the sum is non-trivial.
+
+## Stage 2 (superseding edit) — `bert_vector`/`tfidf__vector` removed from `ParsedResumeData`
+
+- User edited `types/resume.py` directly (outside my tool calls) to drop
+  `bert_vector`/`tfidf__vector` from `ParsedResumeData`, and confirmed it was
+  deliberate when I flagged the unexplained diff. Reasoning, confirmed against
+  the live code: `ifind/lib/vectorizer.ts::encodeAndSaveUserResume` writes
+  `"resume.bert_vector"` / `"resume.tfidf_vector"` — i.e. these vectors live
+  as siblings of `parsedData` on the `Resume` document, computed by ifind's
+  own vectoriser *after* parsing, never by the extractor. `ifind/types/resume.ts`
+  nesting them inside `ParsedResumeData` doesn't match where the running code
+  actually stores them.
+  - v3's output contract is just `ParsedResumeData` as the extractor produces
+    it; it has no business returning recommendation-system embeddings it
+    never computes. **Decision: leave them out of `types/resume.py`
+    entirely** (not relocated elsewhere in this schema) unless a concrete
+    in-scope need for them shows up later. This is a deliberate, acknowledged
+    divergence from `ifind/types/resume.ts` §Stage-2's "mirror exactly" goal,
+    overridden by the user because the TS source of truth is itself
+    structurally inconsistent with the runtime on this one point.
+  - `tests/test_types.py`'s matching assertions were removed in the same edit;
+    confirmed `pytest -q` still passes (12/12) after accepting the change.
+
+## Stage 4 — Evaluation harness + gold set
+
+- **`status` field added to gold JSON** (`scaffold`/`drafted`/`verified`),
+  not in the original PROMPT.md §4.1 spec. Necessary: the first harness run
+  scored all 31 gold files including 28 untouched empty scaffolds, which
+  silently produced nonsense aggregate metrics (trivial 100% recall against
+  empty gold, near-zero precision). `eval/run_eval.py::load_gold` now excludes
+  `status == "scaffold"` by default.
+- **v2 baseline reuses `resume-data/resume-extract-tested-jsons/` (25/31
+  files)** instead of running `resume-extract` live in its own venv. Its venv
+  exists but has nothing installed (`ModuleNotFoundError: spacy`), and
+  reviving spaCy + SkillNer + sklearn-crfsuite for a reference-only baseline
+  on a path we're retiring isn't worth the setup cost or risk (that venv is
+  Python 3.14, and spaCy's 3.14 support is unverified). The 6 files with no
+  pre-computed output (both DOCX variants, DemoGOAL.pdf, the 2 extra Asif
+  variants, Internshala) are reported as "no candidate" rather than silently
+  skipped or faked.
+- **Gold id slugs include the file extension** (`demogoal_pdf` vs
+  `demogoal_docx`), not just the stem — caught a real collision where
+  `DemoGOAL.pdf` and `DemoGOAL.docx` both slugified to `demogoal` and
+  overwrote each other's raw-text dump and draft scaffold.
+- **Hallucination detection: substring match, falling back to
+  `rapidfuzz.fuzz.token_set_ratio` at 0.9** for reordered/paraphrased text,
+  rather than a stricter whole-string Jaro-Winkler compare. Chosen because
+  grounding needs to tolerate re-formatting (e.g. a normalized date) without
+  calling it a hallucination, while still catching genuinely invented text —
+  validated on real v2 output (caught injected processing timestamps, mojibake,
+  and a fabricated "Intermediate" skill-proficiency label with no basis in the
+  source resume).
+- **Link annotations matter more than visible icon text for gold labelling.**
+  On Sambhav Mirajgaonkar's resume, the visible order next to the LinkedIn/GitHub
+  glyphs ("sambhavm" then "sam-wlh-ds") suggested the opposite of the truth —
+  the actual `https://www.linkedin.com/in/...` / `https://github.com/...` hrefs
+  (pulled via `tools/_docio.py::extract_links`, PyMuPDF `get_links()`) showed
+  "sam-wlh-ds" is the GitHub handle and the LinkedIn slug is "sambhav-m", not
+  "sambhavm". This is exactly why PROMPT.md §8 says to resolve header links from
+  annotations first — confirmed here even for a human doing the labelling, not
+  just for the eventual rule-based extractor.
+- **`eval/mappings/resumeextractbench.py` left as a stub (`NotImplementedError`)**
+  rather than a guessed field mapping — downloading the dataset needs a dep not
+  yet installed, and there's no extractor yet to benchmark. Per PROMPT.md's
+  "measure, don't claim" rule, a guessed mapping risks silently wrong scores
+  later; deferred to Stage 6 with the real schema inspected first.
+- **Robustness suite (§4.4) deferred to Stage 5**, not built now: it tests
+  ingest/OCR/pipeline behavior under corruption, rotation, rasterisation, etc.,
+  none of which exist yet. Building the generator now would be untestable
+  scaffolding (ponytail: "no scaffolding for later, later can scaffold for
+  itself").

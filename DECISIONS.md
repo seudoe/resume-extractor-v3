@@ -50,3 +50,41 @@ reference the entry they replace rather than deleting it.
   populates every key; it only affects the diff tool's rendering, not runtime
   output. Field names, nesting and enum values matched `ifind/types/resume.ts`
   exactly on inspection.
+
+## Stage 3 — Environments
+
+- **uv installed via `pip install --user uv`** rather than the official
+  `irm .../install.ps1` script — same result (a user-local `uv.exe`, no admin
+  rights), smaller surface (one trusted PyPI package vs. piping a remote
+  script into PowerShell), and pip was already present.
+- **Python 3.11.9 was already installed on this machine**
+  (`AppData\Local\Python\pythoncore-3.11-64`); `uv venv --python 3.11` picked
+  it up directly, no download needed.
+- **`flashtext` over `pyahocorasick`** for the Aho-Corasick skill-dictionary
+  matcher (Stage 11): `pyahocorasick` is a C extension that needs a compiler
+  on Windows; `flashtext` is pure Python, same algorithm class, no build step.
+  PROMPT.md §3 named both as acceptable alternatives.
+- **`gliner2` deferred out of the default dependency group** into a new
+  `gliner` extra (`uv sync --extra gliner`). It isn't used before Stage 10 and
+  pulls in `torch`, a large download — no reason to carry that weight through
+  Stages 3–9. The base `dependencies` list otherwise matches PROMPT.md §3's
+  runtime list.
+- **Checkpoint 3A, both items deferred by user request:**
+  - Tesseract 5.x: not installed. RapidOCR loaded and ran with zero system
+    install (`scripts/check_env.py` → "RapidOCR model load: OK"), so there's
+    nothing blocking Stage 6 without it; Tesseract stays an option for the
+    Stage 6 OCR benchmark if RapidOCR's accuracy on real scans doesn't hold up.
+  - CUDA torch (~2.5 GB): not installed. `train` extras (`torch`, `gliner2[train]`,
+    `transformers`, `datasets`, `peft`, `scikit-learn`, `lightgbm`) stay an
+    opt-in group (`uv sync --extra train`), installed only when Stage 10
+    actually starts fine-tuning.
+- **`memray` dropped in favour of stdlib `tracemalloc`** for local memory
+  profiling: memray doesn't support Windows, and this is a Windows dev
+  machine (PROMPT.md §2). `eval/perf.py` (Stage 4) will use `tracemalloc` +
+  `psutil` RSS sampling locally; memray can still be used later for the
+  Stage 4.3 "constrained run inside Docker" check, since that runs on Linux.
+- Default `uv sync --extra dev` installs ~638 MB total across ~50 small/medium
+  packages (pymupdf, onnxruntime, opencv-python, scipy, pandas, playwright,
+  reportlab, etc.) — no single package crossed the 500 MB threshold in
+  PROMPT.md §1.3, so this wasn't treated as needing a checkpoint; flagged here
+  for visibility since the sum is non-trivial.

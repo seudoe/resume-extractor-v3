@@ -1,0 +1,24 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# data: keep manifests, ignore raw/bulky content
+data/**
+!data/**/
+!data/**/*.md
+!data/**/manifest*.json
+!data/**/.gitkeep
+!data/splits/*.json
+
+models/**
+!models/.gitkeep
+!models/MANIFEST.md
+
+# reports: keep markdown summaries, ignore large json artifacts
+reports/*.json
+!reports/.gitkeep
+
+.pytest_cache/
+.ruff_cache/
+*.egg-info/

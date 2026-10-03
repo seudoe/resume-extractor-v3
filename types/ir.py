@@ -27,6 +27,11 @@ class Span(BaseModel):
     italic: bool = False
     font: str = ""
     color: int | None = None
+    # True when a PUA/icon glyph (U+E000-F8FF) was stripped immediately
+    # before this span on the same line — PROMPT.md §5 Stage 5: an icon
+    # before a number/handle usually means a phone/email/location line.
+    # Added here (not in the original Stage 2 IR) once Stage 5 needed it.
+    icon_before: bool = False
 
 
 class Line(BaseModel):

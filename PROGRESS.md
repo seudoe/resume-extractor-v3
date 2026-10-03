@@ -2,8 +2,10 @@
 
 ## Current stage
 
-**Stage 4 — Evaluation harness + gold set.** Harness built and running end-to-end;
-gold-labelling is partial (3/31 hand-drafted) and ongoing. Pending user commit.
+**Stage 5 — Ingestion → Document IR.** Complete for PDF+DOCX; two exit-check
+fixtures (DOCX gold, FlowCV) are missing from disk and substituted with
+synthetic equivalents. Pending user commit. Gold-labelling (Stage 4, 3/31
+hand-drafted) continues separately/in parallel.
 
 ## Done
 
@@ -187,15 +189,65 @@ Windows-10-10.0.26200-SP0
   never by the extractor). Regenerated `types/generated/resume.schema.json`/`.ts`
   to match; `pytest -q` still 12/12 after the change.
 
+### Stage 5 — Ingestion → Document IR
+
+- **`src/rx3/ingest/pdf.py`**: `page.get_text("dict")` → `Document` IR, keeping
+  per-span size/bold (flag bit 16 OR font-name hints like "Bold"/"Black")/
+  italic (bit 2)/font/color/bbox; `page.get_links()` → `Link`s (real hrefs,
+  not visible text); `page.get_drawings()` → `Drawing`s (rule detection for
+  Stage 9). Text cleanup: NFKC, `ftfy`, PUA-glyph/U+FFFD stripping with
+  `icon_before` flagging. No reading-order sorting (Stage 7) or cross-line
+  dehyphenation (also Stage 7 — needs reading order first).
+- **`src/rx3/ingest/docx.py`**: paragraphs/runs → `Line`s with pseudo-bbox
+  (sequential y, x from indent); heading styles forced bold; list styles get
+  a bullet glyph prepended; tables flattened to `"cell | cell"` lines;
+  hyperlinks collected from `part.rels` (document-level, not per-run).
+- **`src/rx3/ingest/quality.py`**: per-page OCR-need flag from char-count and
+  `(cid:NN)`-artifact ratio (no dictionary-word check — no wordlist dep, and
+  these two already catch the real failure mode).
+- **`src/rx3/__init__.py`**: bootstraps `types/` onto `sys.path` on import
+  (same pattern as `conftest.py`), so `rx3` submodules can `from ir import ...`
+  without dot-importing `types` as a package.
+- Added `Span.icon_before: bool` to `types/ir.py` — PROMPT.md §5 needed it,
+  Stage 2 hadn't anticipated it.
+- Tested against 6 real resumes in `resume-data/PDFs/AAA/` (no crashes,
+  sensible bold/size/links/drawings) and a synthetic DOCX + synthetic
+  zero-text PDF (real DOCX/FlowCV fixtures are gone — see below).
+  `tests/test_ingest.py`: 10 tests, including a real link-annotation
+  assertion (confirms github/linkedin hrefs extracted correctly) and an
+  OCR-flag assertion. `pytest -q` → 22/22 passed project-wide.
+- **`resume-data/` got reorganized by the user mid-session** (their parallel
+  LLM-JSON-generation work): all 31 gold-seed PDFs moved to
+  `resume-data/PDFs/AAA/` (some renamed, a few new ones added). Fixed
+  `tools/draft_gold.py`'s path. **Both DOCX gold files and
+  `FlowCV_Resume_2026-08-02.pdf` no longer exist anywhere** — user confirmed
+  deleted on purpose. Stage 5's exit check wanted real snapshot/regression
+  tests against these; substituted synthetic equivalents (see DECISIONS.md)
+  — this is a real gap, not fully equivalent to testing the original files.
+- **Real icon-glyph limitation found** (not a bug, a documented gap): one
+  resume's icon font subset maps icons to ordinary Latin-1 codepoints, not
+  the PUA range, so they aren't stripped. Confirmed harmless — Stage 8 will
+  resolve github/linkedin from link annotations, never from icon text. See
+  DECISIONS.md for why widening the heuristic would be worse (false
+  positives on real accented names).
+- **LLM-generated PDF→JSON pairs** (user is producing these in parallel,
+  outside `resume-extractor-v3/`): valid for Stage 10 **training** data only.
+  PROMPT.md §1.5/§4.1 bar hosted-LLM output from ever being `data/gold/`
+  (eval-only, hand-verified) — flagged to the user when asked.
+
 ## Next
 
-- Keep drafting gold for the remaining 28 real resumes (`data/gold/drafts/*.json`,
-  `status: "scaffold"`), then Checkpoint 4B (user verifies all of it).
-- Stage 5: Ingestion → Document IR (PyMuPDF + DOCX), the first real pipeline
-  code. The robustness-suite generator (§4.4) gets built alongside it.
+- Stage 6: OCR fallback (RapidOCR + optional Tesseract benchmark). Real
+  regression test for the zero-text-layer case still wants a FlowCV-like
+  fixture back if one resurfaces.
+- Keep drafting gold for the remaining real resumes under `PDFs/AAA/`
+  (`data/gold/drafts/*.json`, `status: "scaffold"`), then Checkpoint 4B.
 
 ## Open questions
 
+- Real DOCX and FlowCV-equivalent fixtures are missing; Stage 5's exit check
+  is satisfied with synthetic substitutes only. Revisit if those files come
+  back or new DOCX gold is added.
 - Checkpoint 4B (gold verification) is open — nothing in `reports/eval_*`
   should be treated as a reported number until the user has reviewed the
   drafted gold JSON against the source resumes.

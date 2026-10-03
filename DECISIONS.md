@@ -159,3 +159,62 @@ reference the entry they replace rather than deleting it.
   none of which exist yet. Building the generator now would be untestable
   scaffolding (ponytail: "no scaffolding for later, later can scaffold for
   itself").
+
+## Stage 5 — Ingestion → Document IR
+
+- **`resume-data/` was reorganized by the user mid-project** (parallel LLM
+  JSON-generation work): the 31 gold-seed PDFs moved from `resume-data/` to
+  `resume-data/PDFs/AAA/` (some renamed: the Asif variants are now
+  `Resume_Asif.pdf`/`Resume_Asif_4.0.pdf`/`Resume_Asif_GOAL-2.pdf`/
+  `Resume_Asif_GOAL-intGoog-mar26.pdf`; new files appeared too —
+  `26-9-30-csiHead.pdf`, `resume-block.pdf`, `sh_resu.pdf`, `Vedant_Resume (2).pdf`).
+  Updated `tools/draft_gold.py::RESUME_DATA` to the new path. Both `.docx`
+  gold files (`DemoGOAL.docx`, `Resume_Asif_GOAL.docx`) and
+  `FlowCV_Resume_2026-08-02.pdf` no longer exist anywhere under `resume-data/`
+  — user confirmed deleted on purpose. **Open gap:** Stage 5's exit check
+  wants a DOCX ingest snapshot test and a FlowCV OCR-flag regression test
+  against the real file; neither fixture exists right now. Substituted a
+  synthetic DOCX (built in-test with `python-docx`) and a synthetic
+  zero-text-layer PDF (a vector-drawn rectangle, no text) for the OCR-flag
+  test — same failure modes, not the original files. Revisit if/when those
+  files come back (e.g. the user's PDFs/AAA additions, or new DOCX gold).
+- **`Span` gained an `icon_before: bool` field**, missing from the original
+  Stage 2 IR. PROMPT.md §5 asks for it (icon-before-a-number signals
+  phone/email/location) but Stage 2 didn't anticipate it when drafting the
+  schema from spec text alone. Added once Stage 5 actually needed it, rather
+  than guessing ahead of time in Stage 2.
+- **Icon-glyph stripping (PUA range U+E000–F8FF + U+FFFD) doesn't catch every
+  icon font.** Found on Sambhav's real resume: its embedded/subsetted font
+  maps the LinkedIn/GitHub icon glyphs to ordinary Latin-1 codepoints (`ï`
+  U+00EF, `§` U+00A7), not the PUA range, so they pass through as stray
+  characters in `Line.text` (e.g. `"ï sambhavm | § sam-wlh-ds"`) instead of
+  being stripped. **Decision: leave this uncaught, not worth widening the
+  heuristic.** Widening it to "any lone non-ASCII character near a link"
+  would false-positive on real accented names (é, ñ, etc.) — a worse bug
+  than a cosmetic stray glyph. It's harmless in practice: Stage 8's header
+  rules already resolve github/linkedin from `page.get_links()` (the actual
+  href), never from visible icon text, exactly per PROMPT.md §8's own
+  reasoning — confirmed on this file, where the link annotations gave the
+  correct URLs while the visible icon order was actually misleading (see
+  Stage 4's DECISIONS.md entry on the same resume).
+- **No reading-order sorting in `ingest_pdf`.** Lines are emitted in
+  PyMuPDF's native block/line order. Correct for single-column resumes,
+  wrong for multi-column/sidebar ones — deliberately deferred to Stage 7
+  (XY-cut + reading order), not duplicated here.
+- **Dehyphenation deferred to Stage 7**, not implemented in Stage 5's text
+  cleanup despite being listed under PROMPT.md §5's "Text cleanup" bullet.
+  Merging a word broken across two physical lines requires knowing which
+  line follows which in *reading order*, which doesn't exist until Stage 7.
+  Doing it in Stage 5 (PyMuPDF's raw emission order) would misjoin lines in
+  any multi-column layout.
+- **Skipped the "% dictionary words" page-quality signal** (no wordlist
+  dependency in the project) — kept just char-count-near-zero and
+  `(cid:NN)`-artifact-ratio, which already cover the real failure mode this
+  exists for (h.md's FlowCV: 0 extractable chars). Add a dictionary check
+  only if a real resume slips through with dense-but-garbled text that these
+  two miss.
+- **DOCX hyperlinks collected at document level** (`part.rels`), not
+  per-paragraph/run — python-docx doesn't expose per-run hyperlink targets
+  without hand-parsing the raw `w:hyperlink` XML, and nothing downstream
+  needs per-line precision yet (Stage 8 searches all of a page's links, not
+  one line's).

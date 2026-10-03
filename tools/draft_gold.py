@@ -18,7 +18,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-RESUME_DATA = ROOT.parent / "resume-data"
+# resume-data/ was reorganized after this script's first run: the 31 gold-
+# seed PDFs moved to PDFs/AAA/ (see DECISIONS.md Stage 5). Old gold ids keep
+# working since they're keyed by filename, not path.
+RESUME_DATA = ROOT.parent / "resume-data" / "PDFs" / "AAA"
 GOLD_DIR = ROOT / "data" / "gold"
 
 sys.path.insert(0, str(ROOT / "types"))

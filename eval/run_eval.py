@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT / "eval"))
 
 from mappings.ai_path import load_ai_path_baseline  # noqa: E402
 from mappings.llm_json import CALIBRATION_GROQ_LAYOUT, load_llm_baseline  # noqa: E402
+from mappings.rx3_rules import load_rx3_baseline  # noqa: E402
 from mappings.v2 import load_v2_baseline  # noqa: E402
 from metrics import (  # noqa: E402
     hallucination_rate,
@@ -82,8 +83,10 @@ def run(baseline: str) -> dict:
         candidates = load_llm_baseline()
     elif baseline == "llm-groq":  # Groq + layout text calibration run (resume-data/calibration/groq-layout)
         candidates = load_llm_baseline(root=CALIBRATION_GROQ_LAYOUT)
+    elif baseline == "rx3":  # rules baseline over the AAA PDFs (Stage 10)
+        candidates = load_rx3_baseline()
     else:
-        raise SystemExit(f"unknown --baseline {baseline!r} (only 'v2'/'ai'/'llm'/'llm-groq' exist before Stage 12)")
+        raise SystemExit(f"unknown --baseline {baseline!r} (only 'v2'/'ai'/'llm'/'llm-groq'/'rx3' exist before Stage 12)")
 
     scalar_totals: dict[str, list[bool]] = {}
     entity_totals: dict[str, list[dict]] = {s: [] for s in ENTITY_SECTIONS}

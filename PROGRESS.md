@@ -305,6 +305,26 @@ Windows-10-10.0.26200-SP0
   `eval.header_eval`. **Calibration not run yet** (needs Groq keys in
   `resume-data/.env`): see DECISIONS "Side quest".
 
+### Stage 10 (part 1 of 3) — aligner, rules baseline, field eval
+
+- `tools/livecareer_align.py`: HTML `div.paragraph` entries -> IR line ids.
+  108-resume sample: alignment 99.5-100 % on every tagged field
+  (`data/livecareer/aligned.jsonl`, gitignored). Tag findings in DECISIONS.
+- `src/rx3/fields/rules/` (`dates.py`, `entries.py`, `lex.py`, `build.py`,
+  generated `_title_words.py` via `tools/build_title_lexicon.py`):
+  entry segmentation + field roles for work/education/projects/awards/
+  certifications/affiliations/publications/languages/interests/skills/summary.
+- `eval/fields_eval.py` (`uv run python -m eval.fields_eval`) + `run_eval
+  --baseline rx3`. Rules, LiveCareer weak labels (108 resumes): work title
+  recall 82.9 %, start 99.5 %, end 99.0 %; education degree 81.2 %, year
+  85.6 %, **school 43.4 %** (plain rows glue degree+field+school into one
+  cell). AAA agreement with LLM JSONs: work F1 56.6, education 75.1,
+  projects 73.5, certifications 67.7, awards 41.5 (reference = LLM output).
+- `tests/test_fields_rules.py` (3); `pytest -q` -> 67/67.
+- **Not done yet:** synthetic template renderer (10.1), GLiNER2 zero-shot
+  (needs `torch` + `gliner2`, a multi-GB install -> asked first), LoRA
+  fine-tune (Checkpoint 10A), combine-by-eval + latency check.
+
 ## Next (superseded list below kept for history)
 
 - Stage 6: OCR fallback (RapidOCR + optional Tesseract benchmark). Real

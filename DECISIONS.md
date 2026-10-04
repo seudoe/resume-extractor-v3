@@ -551,3 +551,51 @@ reference the entry they replace rather than deleting it.
   then `eval.llm_agreement` (Groq-layout vs Gemini-PDF agreement),
   `eval.header_eval` (new Groq column vs hand header gold) and
   `eval.run_eval --baseline llm-groq`. Only then the bulk run.
+
+## Stage 10 (part 1) — aligner, rules baseline, field eval
+
+- **LiveCareer HTML findings** (Stage 10.1 asked to inspect first): one
+  `div.paragraph` = one entry; spans carry a 4-letter code in their id.
+  Work: `JSTD` start, `EDDT` end, `JTIT` title, `COMP` company, `JCIT/JSTA`
+  city/state, `JDES` bullets (`<li>`). Education: `GRYR` year, `DGRE` degree,
+  `STUY` programline, `SCHO` school (`companyname_educ`), `FRFM` field.
+  **Company names and cities are anonymised** ("Company Name", "City") in
+  every sampled resume, so no company/location labels exist; titles, dates,
+  degrees, programs and bullets are real. The aligner skips placeholder
+  values. `field` often repeats `program` plus honours/GPA text (noisy).
+- **Alignment**: each entry is aligned forward only, from the end of the
+  previous entry (floor reset to the section's heading line, taken from our
+  own Stage 9 segmentation). A first version searched the whole document and
+  matched "Accountant" to the page-top headline; ordering fixed it. First
+  hit with similarity >= 0.9 wins. Coverage (108 resumes, stratified):
+  title 514/514, start 485/485, end 477/477, bullets 2917/2923, degree
+  200/200, school 201/202, year 159/159.
+- **Rules baseline design**: an entry = head (title/company/date lines) +
+  body (bullets). New entry on a date range or a repeat of the first head's
+  style once the body started; a second date range always opens a new entry;
+  a lone year inside a sentence ("2004 Employee of the Year") does not; in
+  plain documents the title line sits *above* its date line, so up to two
+  title/company-like trailing lines of the previous body are pulled forward.
+  Roles from head cells: title by head-noun lexicon (generated from LiveCareer
+  `jobtitle`, 209 words, count >= 4, plus ~40 hand-added words), company by
+  suffix words, location by "City, State". LiveCareer placeholders ("Company
+  Name", "City , State") are stripped from head text. Education: degree word
+  list, institution keyword runs ("X University", "University of X"), one row
+  listing several degrees is split at each "Master/Bachelor/... of".
+- **Measured** (reports/fields_rules_2026-10-04.md; weak labels, rules not
+  fitted to gold): work title 82.9 %, dates ~99 %, education degree 81 %,
+  school 43 %. Biggest failure class: plain rows where field-of-study and
+  school run together ("Systems Support Tulane University"); needs a model
+  (GLiNER) or an institution gazetteer. Not tuned further on purpose.
+- **Caveats**: (1) AAA agreement uses LLM JSON as reference and the LLM wrote
+  dates as "Aug 2024", so date columns there are not comparable (the
+  3 hand-drafted gold files use ISO). (2) `run_eval --baseline rx3` shows
+  hallucination 10 %: the metric counts normalised ISO dates as unseen
+  strings; Stage 12 grounding keeps provenance of the raw text instead.
+  (3) Simple_Hipster-style sidebars fail at section level (Stage 9), so
+  entries are empty there. (4) Gold is still 3 drafted files; the weak-label
+  and LLM-agreement numbers are proxies until gold grows (Checkpoint 4B).
+- **Still open in Stage 10**: synthetic renderer (needed for fine-tune data),
+  GLiNER2 zero-shot, LoRA fine-tune (Checkpoint 10A), combine-by-eval and
+  the latency budget. GLiNER2 needs `torch` (large install), so it waits for
+  the user's go-ahead.

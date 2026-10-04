@@ -34,6 +34,21 @@ class Span(BaseModel):
     icon_before: bool = False
 
 
+class LineFeatures(BaseModel):
+    """Layout signals per line (Stage 7), consumed by header/section/entry
+    stages. Sizes are relative to the document's body font."""
+
+    rel_size: float = 1.0
+    bold: bool = False
+    all_caps: bool = False
+    color_differs: bool = False  # dominant colour != body colour
+    rule_below: bool = False  # a horizontal drawing sits just under the line
+    indent: float = 0.0  # x0 minus the region's left edge, pt
+    gap_above: float = 0.0  # vertical gap to previous line in region, in body line-heights
+    is_bullet: bool = False
+    region: int = 0  # reading-order region index within the page
+
+
 class Line(BaseModel):
     id: str  # stable id in reading order, e.g. "L0", "L1", ...
     page: int
@@ -41,6 +56,7 @@ class Line(BaseModel):
     spans: list[Span] = []
     text: str
     source: SourceKind = "pdf"
+    features: LineFeatures | None = None
 
 
 class Block(BaseModel):

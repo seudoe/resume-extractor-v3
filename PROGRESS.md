@@ -2,7 +2,7 @@
 
 ## Current stage
 
-**Stage 6 — OCR fallback.** Works end-to-end; latency target missed (see below). Stage 5 notes: complete for PDF+DOCX; two exit-check
+**Stage 7 — Layout & reading order.** Code + tests done; reading-order accuracy awaits Checkpoint 7A (user verifies overlays). Stage 6: OCR works, latency target missed (see below). Stage 5 notes: complete for PDF+DOCX; two exit-check
 fixtures (DOCX gold, FlowCV) are missing from disk and substituted with
 synthetic equivalents. Pending user commit. Gold-labelling (Stage 4, 3/31
 hand-drafted) continues separately/in parallel.
@@ -249,6 +249,19 @@ Windows-10-10.0.26200-SP0
   `draft_gold.py` reuses `TEXTs/`, new `--baseline llm`
   (`reports/eval_2026-10-04_baseline-llm.md`).
 
+### Stage 7 — Layout analysis and reading order
+
+- `src/rx3/layout/{columns,lines,bullets,fonts,reading_order}.py`;
+  `analyze_layout(doc)` reorders lines, merges baselines/wrapped bullets,
+  reassigns ids L0..Ln, fills `Line.features`. IR gained `LineFeatures`.
+- `tools/review_reading_order.py` → numbered, region-coloured page overlays
+  in `data/gold/reading_order/` (+ `index.html`) for all 32 AAA PDFs.
+- `eval/layout_eval.py`: bullet accuracy 41/41 on drafted gold (tiny sample).
+- `tests/test_layout.py` (8 tests: columns, header-first, dates not split,
+  left date column, wrapped+dehyphenated bullet, stacked contacts, features,
+  text rules). `pytest -q` → 31/31.
+- **🛑 Checkpoint 7A (open):** you verify reading order on ~10 pages.
+
 ## Next (superseded list below kept for history)
 
 - Stage 6: OCR fallback (RapidOCR + optional Tesseract benchmark). Real
@@ -258,6 +271,8 @@ Windows-10-10.0.26200-SP0
   (`data/gold/drafts/*.json`, `status: "scaffold"`), then Checkpoint 4B.
 
 ## Open questions
+
+- **Checkpoint 7A:** open `data/gold/reading_order/index.html`; for ~10 pages say yes/no per page (is the numbering = how a human reads it?). Suggested: AltaCV p1+p2, Simple_Hipster_CV, Entry_Level_LaTeX, chief-information-officer-cio3, SambhavMirajgaonkar p1, Resume_Asif p1, AryanNiravShah, Jenil_Shah, sh_resu. Stage 7's "≥95 % on two-column files" target can't be claimed until then.
 
 - **OCR latency (needs your call):** RapidOCR ≈ 24 s/page vs ≤ 6 s target. Options: (a) install Tesseract (revisit Checkpoint 3A, admin install) and benchmark it, (b) try other onnxruntime versions/models, (c) accept OCR as a rare slow path. Re-measure when your LLM job isn't running.
 

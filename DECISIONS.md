@@ -263,3 +263,49 @@ reference the entry they replace rather than deleting it.
   Tesseract and benchmark it, try a different ORT version, or accept OCR
   as rare-path slow (text PDFs never hit it).
 - `RX3_OCR_THREADS` env var (default 2) sets ORT intra-op threads.
+
+## Stage 7 — Layout analysis and reading order
+
+- **Algorithm (`layout/columns.py`)**: slab-first XY-cut. (1) Cut at every
+  full-width horizontal gap (peels headers/footers); (2) adjacent slabs whose
+  gutters overlap by ≥10 pt are re-joined and cut vertically *once*, so a
+  two-column body reads column-by-column, not slab-by-slab; one-sided slabs
+  join an open group; a row of column headings joins the group below it;
+  (3) gutter-less slabs coalesce into one region. A vertical cut where one
+  side starts far lower than the other (banner name over only the main
+  column) reads the higher side first. First attempt (vertical-cut-first)
+  put a banner header *after* the sidebar and fragmented sections — fixed
+  after looking at rendered overlays, not by theory.
+- **"Aligned cells" rejection** (`_is_aligned_cells`): a candidate gutter is
+  *not* a column if the smaller side is mostly date-like text (left date
+  column, right-aligned dates) or ≥75 % of its lines share a baseline with
+  the other side (tables, right-aligned dates). Without it, "Acme Corp …
+  2020–2022" rows split into a text column and a dates column.
+- **Baseline merge** (`lines.py`): same-row segments merge left-to-right,
+  tolerance 0.5 × the smaller line height.
+- **Wrapped lines** (`bullets.py`): continuation = same size/bold, small gap,
+  aligned to the bullet's text start (estimated by character proportion when
+  glyph and text share a span) or hanging-indent, previous line ≥3 words,
+  not ending in terminal punctuation or a date, and (reached the right
+  margin or next starts lowercase); hyphen-ended lines always join and the
+  hyphen is dropped when the next fragment is lowercase (ponytail: real
+  compounds broken at the hyphen become one word). Single-token lines
+  (stacked emails/URLs/handles) never merge.
+- **Text-drawn rules** (lines of `____`/`----`) are dropped and set
+  `rule_below` on the line above (seen in the Canva-style CIO templates).
+- **`LineFeatures`** added to the IR (`rel_size`, `bold`, `all_caps`,
+  `color_differs`, `rule_below`, `indent`, `gap_above` in body line-heights,
+  `is_bullet`, `region`); body font = char-weighted mode of sizes (0.5 pt).
+- **Bug found by tests**: a literal backspace char (heredoc `\b` escape) had
+  silently broken a regex; scanned all sources for control characters.
+- **Measured**: bullet accuracy `eval/layout_eval.py` = 41/41 gold bullets
+  (3 drafted gold files) come out as exactly one line — tiny sample, and the
+  gold bullets are mostly project descriptions. **Reading-order accuracy is
+  NOT measured yet**: it needs the user's page-level yes/no (Checkpoint 7A)
+  on `data/gold/reading_order/*.png`.
+- **Known limits**: sidebar-vs-main order is heuristic (main first when the
+  sidebar starts lower); icon-image placeholder text ("company.png") becomes
+  junk lines; a lone date-ish right cell on a line with no baseline partner
+  can still be read as a column; multi-line date cells ("Jan 2022 -" /
+  "Present") leave "Present" as its own line (Stage 11's date parser must
+  join them).

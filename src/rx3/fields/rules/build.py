@@ -268,5 +268,11 @@ def build_section(name: str, lines: list[Line]) -> list[dict] | str:
         entries = split_entries(_split_degrees(lines) if edu else lines, _edu_opens if edu else None)
         if name in PER_LINE and len(entries) <= 1 and len(lines) > 2:
             entries = per_line_entries(lines)
-        return [e for e in (ENTRY_BUILDERS[name](x) for x in entries) if any(v for v in e.values() if v)]
+        out = []
+        for x in entries:
+            e = ENTRY_BUILDERS[name](x)
+            if any(v for v in e.values() if v):
+                e["_lines"] = [l.id for l in x.lines]  # provenance for Stages 11-12 (stripped before output)
+                out.append(e)
+        return out
     return []

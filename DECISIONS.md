@@ -599,3 +599,50 @@ reference the entry they replace rather than deleting it.
   GLiNER2 zero-shot, LoRA fine-tune (Checkpoint 10A), combine-by-eval and
   the latency budget. GLiNER2 needs `torch` (large install), so it waits for
   the user's go-ahead.
+
+## Stage 11 — normalisation and enrichment
+
+- **Dates**: `parse_period` outputs `YYYY-MM-01` (bare year -> `-01-01`,
+  season/quarter -> its first month). Empty policy: unknown start `""`, unknown
+  end `None`, never today's date. A lone date is a *start* for work and an
+  *end* for education; "Expected ..." is always an end. `isCurrent` is True for
+  Present/Current, and for an education end in the future (student still
+  enrolled; matches the gold drafts). Seasons: spring 3, summer 6, fall/autumn 9,
+  winter 1 (approximation, documented). Property tests (`hypothesis`) guard
+  never-raises, never-fabricates and ordered-range round-trip.
+- **Degrees**: canonical full names (Bachelor of Technology, Master of Science,
+  ...); HSC and SSC stay abbreviated (what Indian resumes and the LLM JSONs
+  write); unknown text is kept as written. `B.Tech in IT` splits into type +
+  course. **Score**: `CGPA: 9.875`, `Percentage: 92.80%`; a scale (`/10`) is
+  only attached when the resume states one, never inferred.
+- **Bullets**: achievement = rank/award wording, or a number plus an impact
+  verb/%/currency; moved out of responsibilities. Project `metrics` are
+  *copies* of description bullets that contain a figure (description stays
+  complete).
+- **Awards vs certifications**: reclassified by keywords over name+issuer
+  regardless of source section (award: winner/rank/finalist/hackathon/prize/
+  scholarship/medal/top-N/honours/contest...; certification: certified/course/
+  specialization/Coursera/NPTEL/Udemy/edX/AWS/Google/Microsoft/Oracle...).
+  Both or neither signals -> stays in its source section.
+- **Work type**: internship/volunteer/co-op from title, company or the section
+  heading it sat under; else job.
+- **Skills**: names canonicalised through a curated table (alias -> name ->
+  group; `js` -> JavaScript, `postgres` -> PostgreSQL, ...). The resume's own
+  `Label:` grouping is kept; ungrouped items go to table groups (Programming
+  Languages, Web Technologies, Databases, Cloud & DevOps, Data Science & ML,
+  Tools & Platforms, Core Concepts) else "Other Skills". Extra skills come from
+  projects'/work `techStack` lines and curated mentions in bullets. The 26.7k
+  skill-DB names (Hard/Soft, no parentheses, <= 4 words) only validate and
+  case-fix list items; they are **not** used to discover skills in free text
+  (too noisy: "Sales", "Management"). Single-letter/common-word names (C, R, Go,
+  Make...) are matched only inside explicit lists. Interests never feed skills.
+  `yearsOfExperience` = union of work periods whose text mentions any tool of
+  the group (no overlap double counting); `lastUsed` = "Present" or the latest
+  `YYYY-MM` end; both stay `0` / `""` when nothing supports them.
+- **Links**: project links are the PDF annotations whose centre lies inside the
+  entry's line bbox (repo = github/gitlab/bitbucket, else live).
+- **Measured**: see PROGRESS. Education year 85.4 % misses the 95 % target;
+  inspected misses are wrong entry pairing/merged degree blocks from Stage 10,
+  not date parsing. Skills F1 69.0 is against LLM output.
+- **Not done / next**: nothing in `normalise` fixes entry boundaries; GLiNER
+  (Stage 10) is expected to. `uv.lock` is stale after adding `hypothesis`.

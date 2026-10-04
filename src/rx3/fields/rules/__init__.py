@@ -24,6 +24,9 @@ def extract_rules(doc: Document, filename: str = "") -> dict:
         if s.name == "summary":
             out["summary"] = (out["summary"] + " " + built).strip()
         else:
+            for e in built:
+                if isinstance(e, dict):
+                    e["_heading"] = s.heading or ""
             out[s.name] += built
     out["metaDetails"] = extract_header(doc, filename).meta
     return out

@@ -1,4 +1,4 @@
-# Eval report — baseline-rx3 — 2026-10-04T20:47:57
+# Eval report — baseline-rx3 — 2026-10-04T21:40:47
 
 Gold set: 3 drafted/verified files (0 verified, 3 draft/unverified), plus 28 not yet hand-labelled (excluded from scoring).
 Candidate: 3/3 gold files had a matching candidate prediction.
@@ -28,11 +28,11 @@ Candidate: 3/3 gold files had a matching candidate prediction.
 
 ## Skills
 
-Precision 76.9%, recall 75.4%, F1 0.761
+Precision 52.8%, recall 69.6%, F1 0.583
 
 ## Hallucination / schema / determinism
 
-- Hallucination rate (mean over scored files): 10.3%
+- Hallucination rate (mean over scored files): 11.9%
 - Schema validity: 100.0%
 - Crash rate: 0.0%
 

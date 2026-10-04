@@ -16,7 +16,7 @@ from rx3.fields.rules.lex import is_company, is_title
 
 CELL = "\t"  # layout joins same-row cells with a tab
 _GLYPH = re.compile(r"^[\s•◦▪●■□◆▶►○·*\-–—>]+")
-_NOISE = re.compile(r"^[\[\]\s§ï]*$")  # "[]" / "[§]" icon-link leftovers
+_NOISE = re.compile(r"^[\W_]*$")  # "[]" / "[§]" / lone icon glyphs: nothing readable
 
 
 def strip_glyph(text: str) -> str:

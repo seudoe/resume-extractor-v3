@@ -325,6 +325,34 @@ Windows-10-10.0.26200-SP0
   (needs `torch` + `gliner2`, a multi-GB install -> asked first), LoRA
   fine-tune (Checkpoint 10A), combine-by-eval + latency check.
 
+### Stage 11 — Normalisation and enrichment
+
+- `src/rx3/normalise/`: `periods.py` (`parse_period`, `finish_period`),
+  `education.py` (canonical degrees, course split, CGPA/percentage),
+  `bullets.py` (achievements vs responsibilities), `skills.py` + `_tech.py`
+  (curated tech table, `_skill_names.txt` generated from
+  `skill_db_relax_20.json` by `tools/build_skill_names.py`), `enrich.py`
+  (work type, award/certification reclassification, project metrics/stack/links),
+  `__init__.py` (`normalise(parsed, doc)`).
+- Rules stage now attaches `_lines` (line ids) and `_heading` to each entry so
+  Stage 12 grounding has provenance; `normalise` strips them from the output.
+- `eval/fields_eval.py --extractor rules+norm`; `run_eval --baseline rx3`
+  now runs rules + normalisation.
+- Results (reports/fields_rules+norm_2026-10-04.md): work start/end **99.5 /
+  99.0 %** (LiveCareer labels), education year **85.4 %** (below the 95 %
+  target; misses are entry-boundary errors in messy plain-text education
+  blocks, not parser errors), degree 80.3 %. Skills names vs LLM JSONs on AAA:
+  P 63.2 / R 80.2 / **F1 69.0** (gold-3: F1 0.58); bullet-mention discovery
+  changed nothing on AAA.
+- Tests: `tests/test_normalise.py` (8, incl. 2 `hypothesis` property tests for
+  `parse_period`: never raises/never fabricates a date, ordered-range
+  round-trip); `pytest -q` -> 75/75.
+- `hypothesis` installed into `.venv` (small) and added to dev deps in
+  `pyproject.toml`; `uv.lock` not regenerated.
+- Open: education date accuracy needs better entry segmentation (Stage 10
+  GLiNER, still waiting on the torch install go-ahead); skills F1 is measured
+  against LLM output, not gold.
+
 ## Next (superseded list below kept for history)
 
 - Stage 6: OCR fallback (RapidOCR + optional Tesseract benchmark). Real

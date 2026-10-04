@@ -1,4 +1,4 @@
-"""Run the rx3 rules baseline over the AAA PDFs (candidates for run_eval --baseline rx3)."""
+"""Run the rx3 rules baseline + Stage 11 normalisation over the AAA PDFs (candidates for run_eval --baseline rx3)."""
 
 import sys
 from pathlib import Path
@@ -12,11 +12,13 @@ from _resume_data_layout import GOLD_CATEGORY, pdf_path, stems_in_category  # no
 from rx3.fields.rules import extract_rules  # noqa: E402
 from rx3.ingest.pdf import ingest_pdf  # noqa: E402
 from rx3.layout import analyze_layout  # noqa: E402
+from rx3.normalise import normalise  # noqa: E402
 
 
 def load_rx3_baseline() -> dict[str, dict]:
     """{stem: ParsedResumeData-shaped dict} (metaDetails included)."""
     out = {}
     for stem in stems_in_category(GOLD_CATEGORY):
-        out[stem] = extract_rules(analyze_layout(ingest_pdf(pdf_path(GOLD_CATEGORY, stem).read_bytes())), stem + ".pdf")
+        doc = analyze_layout(ingest_pdf(pdf_path(GOLD_CATEGORY, stem).read_bytes()))
+        out[stem] = normalise(extract_rules(doc, stem + ".pdf"), doc, keep_private=False)
     return out

@@ -27,12 +27,15 @@ sys.path.insert(0, str(ROOT / "eval"))
 import rx3  # noqa: E402,F401
 from _resume_data_layout import GOLD_CATEGORY, RESUME_DATA_ROOT, json_path, pdf_path, stems_in_category  # noqa: E402
 from matching import match_entities  # noqa: E402
-from metrics import score_entity_section  # noqa: E402
+from metrics import score_entity_section, skills_prf1  # noqa: E402
 from rapidfuzz.distance import JaroWinkler  # noqa: E402
 from rx3.fields.rules import extract_rules  # noqa: E402
 from rx3.fields.rules.dates import find_range, to_iso  # noqa: E402
 from rx3.ingest.pdf import ingest_pdf  # noqa: E402
 from rx3.layout import analyze_layout  # noqa: E402
+from rx3.normalise import normalise  # noqa: E402
+from rx3.normalise.education import canonical_degree  # noqa: E402
+from rx3.normalise.skills import build_skills  # noqa: E402
 
 ALIGNED = ROOT / "data" / "livecareer" / "aligned.jsonl"
 SIM = 0.9
@@ -55,6 +58,8 @@ def run_extractor(name: str, pdf: Path) -> dict:
     doc = analyze_layout(ingest_pdf(pdf.read_bytes()))
     if name == "rules":
         return extract_rules(doc, pdf.name)
+    if name == "rules+norm":  # Stage 11 on top of the rules baseline
+        return normalise(extract_rules(doc, pdf.name), doc)
     raise SystemExit(f"unknown extractor {name!r}")
 
 
@@ -96,7 +101,7 @@ def livecareer(extractor: str) -> list[str]:
             if g.get("school"):
                 tallies["edu.school"].append(_jw(p["institution"], g["school"]) >= 0.85)
             if g.get("degree"):
-                tallies["edu.degree"].append(_jw(p["field"]["type"], g["degree"]) >= 0.85)
+                tallies["edu.degree"].append(_jw(p["field"]["type"], canonical_degree(g["degree"])) >= 0.85)  # both sides canonical
             if g.get("gradyear"):
                 tallies["edu.year"].append(_ym(p["period"]["end"]) == _label_date(g["gradyear"]))
     md = ["| metric | accuracy | n |", "|---|---|---|"]
@@ -116,6 +121,9 @@ def aaa_agreement(extractor: str) -> list[str]:
         if not jp.exists():
             continue
         ref = json.loads(jp.read_text(encoding="utf-8"))
+        if extractor == "rules+norm":  # LLM wrote "B.Tech"; compare canonical degree names on both sides
+            for e in ref.get("education", []):
+                e["field"]["type"] = canonical_degree(e["field"].get("type", ""))
         pred = run_extractor(extractor, pdf_path(GOLD_CATEGORY, stem))
         n += 1
         for s in sections:
@@ -135,6 +143,25 @@ def aaa_agreement(extractor: str) -> list[str]:
     return md
 
 
+def skills_eval(extractor: str) -> list[str]:
+    """Skills P/R/F1 vs the LLM JSONs (names only), with and without bullet-mention discovery."""
+    rows = {"listed + tech lines": [], "+ bullet mentions": []}
+    for stem in stems_in_category(GOLD_CATEGORY):
+        jp = json_path(GOLD_CATEGORY, stem)
+        if not jp.exists():
+            continue
+        ref = json.loads(jp.read_text(encoding="utf-8"))
+        doc = analyze_layout(ingest_pdf(pdf_path(GOLD_CATEGORY, stem).read_bytes()))
+        raw = extract_rules(doc, stem + ".pdf")
+        norm = normalise(raw, doc, keep_private=True)
+        for label, discover in (("listed + tech lines", False), ("+ bullet mentions", True)):
+            rows[label].append(skills_prf1({"skills": build_skills(norm, discover_in_bullets=discover)}, ref))
+    md = ["| variant | P | R | F1 |", "|---|---|---|---|"]
+    for label, r in rows.items():
+        md.append(f"| {label} | " + " | ".join(f"{mean(x[k] for x in r):.1%}" for k in ("precision", "recall", "f1")) + " |")
+    return md
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--extractor", default="rules")
@@ -142,6 +169,8 @@ def main() -> None:
     out = [f"# Stage 10 field eval — {args.extractor} — {date.today().isoformat()}", "",
            "## A. LiveCareer (weak HTML labels, held-out)", ""] + livecareer(args.extractor)
     out += ["", "## B. AAA agreement with LLM JSONs", ""] + aaa_agreement(args.extractor)
+    if args.extractor == "rules+norm":
+        out += ["", "## C. Skills names vs LLM JSONs (AAA)", ""] + skills_eval(args.extractor)
     path = ROOT / "reports" / f"fields_{args.extractor}_{date.today().isoformat()}.md"
     path.write_text("\n".join(out) + "\n", encoding="utf-8")
     print("\n".join(out))

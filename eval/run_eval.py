@@ -22,6 +22,7 @@ sys.path.insert(0, str(ROOT / "types"))
 sys.path.insert(0, str(ROOT / "eval"))
 
 from mappings.ai_path import load_ai_path_baseline  # noqa: E402
+from mappings.llm_json import load_llm_baseline  # noqa: E402
 from mappings.v2 import load_v2_baseline  # noqa: E402
 from metrics import (  # noqa: E402
     hallucination_rate,
@@ -77,8 +78,10 @@ def run(baseline: str) -> dict:
         candidates = load_v2_baseline(V2_TESTED_JSONS)
     elif baseline == "ai":
         candidates = load_ai_path_baseline(AI_PATH_OUTPUT)
+    elif baseline == "llm":
+        candidates = load_llm_baseline()
     else:
-        raise SystemExit(f"unknown --baseline {baseline!r} (only 'v2'/'ai' exist before Stage 12)")
+        raise SystemExit(f"unknown --baseline {baseline!r} (only 'v2'/'ai'/'llm' exist before Stage 12)")
 
     scalar_totals: dict[str, list[bool]] = {}
     entity_totals: dict[str, list[dict]] = {s: [] for s in ENTITY_SECTIONS}

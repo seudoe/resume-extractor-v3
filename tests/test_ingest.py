@@ -131,3 +131,31 @@ def test_page_quality_does_not_flag_real_text_resume():
         pytest.skip("SambhavMirajgaonkarResume.pdf not found")
     doc = ingest_pdf(path.read_bytes())
     assert all(page_quality(p)["needs_ocr"] is False for p in doc.pages)
+
+
+@requires_gold
+def test_ocr_fallback_recovers_text_from_image_only_pdf():
+    """Stage 6 exit check: an image-only PDF (no text layer) goes through
+    OCR and yields readable text. Slow (~20s on CPU, RapidOCR)."""
+    import pymupdf
+
+    from rx3.ocr.select import apply_ocr_fallback
+
+    path = GOLD_PDF_DIR / "Vedant Patil.pdf"
+    if not path.exists():
+        pytest.skip("Vedant Patil.pdf not found")
+    src = pymupdf.open(path)
+    pix = src[0].get_pixmap(dpi=150)
+    img_pdf = pymupdf.open()
+    page = img_pdf.new_page(width=src[0].rect.width, height=src[0].rect.height)
+    page.insert_image(page.rect, pixmap=pix)
+    data = img_pdf.tobytes()
+
+    doc = ingest_pdf(data)
+    assert page_quality(doc.pages[0])["needs_ocr"] is True  # no text layer
+
+    doc = apply_ocr_fallback(doc, data)
+    text = " ".join(line.text for line in doc.pages[0].lines).upper()
+    assert all(line.source == "ocr" for line in doc.pages[0].lines)
+    assert "VEDANT" in text and "GMAIL.COM" in text
+    assert [l.id for l in doc.pages[0].lines] == [f"L{i}" for i in range(len(doc.pages[0].lines))]

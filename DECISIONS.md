@@ -218,3 +218,48 @@ reference the entry they replace rather than deleting it.
   without hand-parsing the raw `w:hyperlink` XML, and nothing downstream
   needs per-line precision yet (Stage 8 searches all of a page's links, not
   one line's).
+
+## Stage 6 — OCR fallback
+
+- **Data layout standardized by the user** (2026-10-03):
+  `resume-data/{PDFs,JSONs,TEXTs,Extraction-details}/<CATEGORY>/<stem>.*`.
+  `AAA` = the hand-picked real-resume gold-seed category; every other
+  category = anonymized LiveCareer. Encoded once in
+  `tools/_resume_data_layout.py` (path helpers + `GOLD_CATEGORY`);
+  `tools/draft_gold.py` now reuses `TEXTs/AAA/<stem>.txt` when present
+  (falls back to its own extraction) and takes PDFs from `PDFs/AAA/`.
+  Stage 10's data builders should import the same module. `JSONs/` is
+  LLM output: Stage 10 training data, or a scored baseline — never gold.
+- **New eval baseline `--baseline llm`** (`eval/mappings/llm_json.py`) scores
+  `JSONs/AAA/*` against hand-drafted gold like v2/ai. On the 3 drafted gold
+  files the LLM gets name/email/phone 100% but linkedin/github 50%: it
+  picked "sambhavm" (visible text beside the icon) as LinkedIn — the same
+  icon-order trap found while hand-labelling, independent confirmation that
+  link annotations must win over visible text (Stage 8).
+- **OCR engine: RapidOCR only, no default declared "winner".** Tesseract
+  isn't installed (Checkpoint 3A, deferred), so there's no A/B — PROMPT.md
+  asks the benchmark to pick between them. `ocr/tesseract.py` not written
+  (untestable without the binary; ponytail).
+- **Benchmark (`eval/ocr_bench.py`, reports/ocr_bench_2026-10-04.md)**, 6
+  text resumes, page 1, 2 ORT threads (HF free-tier budget), CER/WER vs the
+  embedded text layer:
+
+  | DPI | mean s/page | mean CER | mean WER |
+  |---|---|---|---|
+  | 150 | 24.4 | 0.154 | 0.317 |
+  | 200 | 25.4 | 0.159 | 0.300 |
+  | 300 | 23.9 | 0.169 | 0.267 |
+
+  DPI doesn't move latency (recognition dominates: ~18 s of ~21 s at 2
+  threads; 4–8 threads ≈ 10 s) and accuracy differences are within noise →
+  **default 150 DPI** (cheapest render). CER is bimodal: clean resumes
+  1.5–6 %, but Vedant Patil/LaTeX template ~35–42 % — mostly right-aligned
+  dates/columns on the same visual line being emitted in a different order
+  than the text layer (reading-order, Stage 7), plus OCR dropping inter-word
+  spaces ("VEDANTPATIL"), not pure character errors.
+- **Target miss, not accepted:** PROMPT.md §4.7 wants OCR p95 ≤ 6 s/page;
+  measured ~24 s (and ~10 s with 4+ threads) on this machine, while the
+  user's LLM pipeline was also running (noisy). Needs a decision: install
+  Tesseract and benchmark it, try a different ORT version, or accept OCR
+  as rare-path slow (text PDFs never hit it).
+- `RX3_OCR_THREADS` env var (default 2) sets ORT intra-op threads.

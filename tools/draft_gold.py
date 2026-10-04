@@ -18,16 +18,15 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-# resume-data/ was reorganized after this script's first run: the 31 gold-
-# seed PDFs moved to PDFs/AAA/ (see DECISIONS.md Stage 5). Old gold ids keep
-# working since they're keyed by filename, not path.
-RESUME_DATA = ROOT.parent / "resume-data" / "PDFs" / "AAA"
 GOLD_DIR = ROOT / "data" / "gold"
 
 sys.path.insert(0, str(ROOT / "types"))
 sys.path.insert(0, str(ROOT))
 
 from _docio import extract_links, extract_text  # noqa: E402
+from _resume_data_layout import GOLD_CATEGORY, RESUME_DATA_ROOT, text_path  # noqa: E402
+
+RESUME_DATA = RESUME_DATA_ROOT / "PDFs" / GOLD_CATEGORY
 
 # Groups PROMPT.md §4.1 calls out as near-duplicates: real resumes with
 # several nearly-identical uploaded versions. Keep them all (don't dedupe by
@@ -97,8 +96,11 @@ def main() -> None:
         raw_path = GOLD_DIR / "raw" / f"{gid}.txt"
         draft_path = GOLD_DIR / "drafts" / f"{gid}.json"
 
+        # Reuse the user's standardized TEXTs/<cat>/<stem>.txt when present
+        # instead of re-extracting; fall back to our own extraction.
+        shared_text = text_path(GOLD_CATEGORY, path.stem)
         try:
-            text = extract_text(path)
+            text = shared_text.read_text(encoding="utf-8") if shared_text.exists() else extract_text(path)
         except Exception as e:  # noqa: BLE001
             text = f"<<extraction failed: {e}>>"
         try:

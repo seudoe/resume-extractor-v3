@@ -2,7 +2,7 @@
 
 ## Current stage
 
-**Stage 5 — Ingestion → Document IR.** Complete for PDF+DOCX; two exit-check
+**Stage 6 — OCR fallback.** Works end-to-end; latency target missed (see below). Stage 5 notes: complete for PDF+DOCX; two exit-check
 fixtures (DOCX gold, FlowCV) are missing from disk and substituted with
 synthetic equivalents. Pending user commit. Gold-labelling (Stage 4, 3/31
 hand-drafted) continues separately/in parallel.
@@ -235,7 +235,21 @@ Windows-10-10.0.26200-SP0
   PROMPT.md §1.5/§4.1 bar hosted-LLM output from ever being `data/gold/`
   (eval-only, hand-verified) — flagged to the user when asked.
 
-## Next
+### Stage 6 — OCR fallback
+
+- `src/rx3/ocr/rapid.py` (RapidOCR → IR lines, `source="ocr"`, font size from
+  box height, bold unknown→False), `ocr/select.py` (`apply_ocr_fallback`: OCR
+  only pages `page_quality` flags, renumber line ids). Default 150 DPI.
+- `eval/ocr_bench.py` + `reports/ocr_bench_2026-10-04.{md,json}`: CER/WER/
+  latency/RSS (numbers in DECISIONS.md). **RapidOCR ≈ 24 s/page at 2 threads
+  vs the 6 s target — missed.** Tesseract not installed so no A/B.
+- `tests/test_ingest.py`: end-to-end image-only PDF → OCR → readable text
+  (replaces the missing FlowCV fixture). `pytest -q` → 23/23.
+- Data layout standardization applied: `tools/_resume_data_layout.py`,
+  `draft_gold.py` reuses `TEXTs/`, new `--baseline llm`
+  (`reports/eval_2026-10-04_baseline-llm.md`).
+
+## Next (superseded list below kept for history)
 
 - Stage 6: OCR fallback (RapidOCR + optional Tesseract benchmark). Real
   regression test for the zero-text-layer case still wants a FlowCV-like
@@ -244,6 +258,8 @@ Windows-10-10.0.26200-SP0
   (`data/gold/drafts/*.json`, `status: "scaffold"`), then Checkpoint 4B.
 
 ## Open questions
+
+- **OCR latency (needs your call):** RapidOCR ≈ 24 s/page vs ≤ 6 s target. Options: (a) install Tesseract (revisit Checkpoint 3A, admin install) and benchmark it, (b) try other onnxruntime versions/models, (c) accept OCR as a rare slow path. Re-measure when your LLM job isn't running.
 
 - Real DOCX and FlowCV-equivalent fixtures are missing; Stage 5's exit check
   is satisfied with synthetic substitutes only. Revisit if those files come

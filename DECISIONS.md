@@ -357,3 +357,75 @@ reference the entry they replace rather than deleting it.
 - Tesseract spans are per word with one size per line (tallest word × 0.9):
   per-word size made x-height-only words look tiny and ordinary word gaps look
   like cell gaps.
+
+## Stage 8 — Header and contact (rules only)
+
+- **Pipeline order for the header**: ingest -> (OCR) -> `analyze_layout` -> `extract_header`.
+  Name scoring needs `Line.features`; links need the page `Link` boxes mapped
+  back to the line they sit on (`_line_at`).
+- **Header zone** (`header/zone.py`): page-1 lines from the top to the first
+  section heading, any block under a CONTACT-style heading (sidebars are read
+  after the main column, so "Edinburgh, United Kingdom" under CONTACT sits
+  far from the top in reading order), and any page-1 line carrying contact
+  data. A phone-like pattern must not be a date range ("2017 - 2021" was
+  pulling education lines into the header and inventing a location).
+- **Name**: best score over cells (tab-split) in the top 35 % of page 1:
+  3 x relative size (capped), bold, 2-3 tokens preferred, earlier is better,
+  + filename and email-local-part overlap. Excluded: digits/@/URLs, resume
+  furniture words and job-title words. Small-caps gaps are fixed ("M OHD" ->
+  "MOHD", "M ohd" -> "Mohd"); a second line at the same large size joins
+  ("M ohd Asif" / "Shershahvadi"). Casing preserved.
+- **Email: visible text first, `mailto:` only as fallback.** Two resumes in
+  the gold set (Jenil, Pooja) carry a stale `mailto:` copied from a template
+  while the visible address is the candidate's own. (Contrast with links,
+  where the annotation wins — see below.)
+- **Phone**: `phonenumbers` (IN, then no region) at VALID leniency, >= 10 raw
+  digits, date ranges and digits inside emails removed first; E.164 out. Last
+  resorts: POSSIBLE with an explicit "+CC", then a digits-only "+CC..."
+  (template placeholders like "+1-234-456-789" that aren't valid numbers).
+- **Links**: annotations first (they carry the real URL when the visible text
+  is an icon or just "LinkedIn"), then URL regex over text, then explicit
+  `github: handle` labels (handle kept as written — no URL invented).
+  linkedin = `/in/` or `/pub/` profile only (a `/posts/` link is skipped);
+  github profile = exactly one path segment (a `github.com/user/repo` is a
+  project link). **Coding-platform profiles (Codeforces, CodeChef, LeetCode,
+  Kaggle, HackerRank, ...) count from anywhere in the document** — they're
+  always the candidate's own, and Sambhav's/Agneesh's sit under Awards — but
+  linkedin/github/portfolio links must be in the header zone or on a contact
+  line, or a project demo would become a "portfolio". Bare-domain regex
+  requires a >= 3-char label and no `.tech`/`.site`/`.xyz` TLDs: `B.Tech`
+  was matching as a domain.
+- **Location** (`header/gazetteer.py`, hand-curated India-heavy list + common
+  world cities/countries/US states, not GeoNames): only what the text says;
+  city is never inferred from a state nor a country from a city. **Last city
+  match wins** in a line ("Andheri, Mumbai, Maharashtra" -> Mumbai), US-style
+  "City, ST" abbreviations kept as written, 6-digit PIN only on a line that
+  already has a city/state. Candidate lines = header zone, so a college name
+  under Education can't become the candidate's city. The Kerala city list
+  (Ernakulam, Kollam, ...) was added *after* seeing a miss on a dev resume —
+  generic data, but note it.
+- **`gender`** is always `None` (PROMPT.md §1.7), covered by a test.
+- **Header gold** (`data/gold/header/header_gold.json`, gitignored: PII) was
+  labelled by me from raw page text + link annotations, deliberately not
+  from extractor/LLM output, for all 32 AAA resumes. **Unverified.**
+- **Measured** (`eval/header_eval.py`, reports/header_eval_2026-10-04.md),
+  32 resumes: name 100 %, email 100 %, phone 100 % (26 with a number),
+  state 100 %, country 100 %, postal 100 %, city 91.3 %, extra_links P/R
+  100/100, **linkedin 95.2 % and github 94.1 % — below the 98 % target.**
+  Reference LLM JSONs on the same gold: linkedin 52.4 %, github 41.2 %,
+  extra_links P/R 50/19 (they emit "Linkedin", markdown-wrapped Google-search
+  URLs, or invent a country on 17 resumes that don't state one).
+- **Why the two target misses**: all three link misses + city misses are
+  Simple_Hipster_CV (LinkedIn/GitHub shown as an icon + bare handle with *no*
+  annotation and no readable platform text — recoverable only by recognising
+  the icon image; skipped) and two cities outside the gazetteer ("Bay Area",
+  "Grand Rapids"). One resume out of 21/17 is 95 %/94 %, so the targets can't
+  be met on this set without icon recognition.
+- **Caveat on every number above**: the rules were tuned while looking at
+  these same 32 resumes (stale-mailto policy, platform-links-anywhere,
+  contact-heading blocks, Kerala cities all came from failures here) and the
+  gold is mine and unverified. These are development-set numbers; a held-out
+  set (the 20-30 extra resumes from Checkpoint 4A) is the real test.
+- **Bugs caught while building**: a heredoc turned `\b` into a literal
+  backspace in two regexes (again); a mangled docstring; `urlparse` raising
+  on malformed targets (guarded in both the extractor and the eval).

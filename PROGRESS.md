@@ -2,7 +2,7 @@
 
 ## Current stage
 
-**Stage 7 — Layout & reading order.** Code + tests done; reading-order accuracy awaits Checkpoint 7A (user verifies overlays). Stage 6: OCR works, latency target missed (see below). Stage 5 notes: complete for PDF+DOCX; two exit-check
+**Stage 8 — Header & contact rules.** Done; dev-set numbers in DECISIONS (linkedin/github 95/94 % vs 98 % target, one icon-only resume). Stage 7: layout Code + tests done; reading-order accuracy awaits Checkpoint 7A (user verifies overlays). Stage 6: OCR works, latency target missed (see below). Stage 5 notes: complete for PDF+DOCX; two exit-check
 fixtures (DOCX gold, FlowCV) are missing from disk and substituted with
 synthetic equivalents. Pending user commit. Gold-labelling (Stage 4, 3/31
 hand-drafted) continues separately/in parallel.
@@ -263,6 +263,20 @@ Windows-10-10.0.26200-SP0
 - **🛑 Checkpoint 7A (answered with problems → fixed, awaiting re-check):** user found fields mixing (education rows, skills rows, contact items). Fixed via explicit `	` cells + no row-merging (see DECISIONS "Stage 6/7 revision"). Overlays regenerated.
 - **Tesseract installed → now the default OCR engine** (2.2 s/page vs RapidOCR 24 s; lower WER). OCR latency open question closed.
 
+### Stage 8 — Header and contact (rules only)
+
+- `src/rx3/header/{zone,name,contact,links,location,gazetteer}.py`;
+  `extract_header(doc, filename)` -> `HeaderResult(meta, provenance)`; gender
+  always None.
+- `eval/header_eval.py` + `data/gold/header/header_gold.json` (32 resumes,
+  hand-labelled, **unverified**, gitignored). rx3: name/email/phone/state/
+  country/postal 100 %, city 91 %, extras 100/100, linkedin 95.2 %,
+  github 94.1 % (below 98 % target — one icon-only resume). LLM reference:
+  linkedin 52 %, github 41 %.
+- `tests/test_header.py` (10 tests). `pytest -q` -> 44/44.
+- **Dev-set caveat:** rules were tuned on these same 32 resumes; held-out
+  numbers need the extra resumes from Checkpoint 4A.
+
 ## Next (superseded list below kept for history)
 
 - Stage 6: OCR fallback (RapidOCR + optional Tesseract benchmark). Real
@@ -272,6 +286,13 @@ Windows-10-10.0.26200-SP0
   (`data/gold/drafts/*.json`, `status: "scaffold"`), then Checkpoint 4B.
 
 ## Open questions
+
+- **Header gold verification (4B):** `data/gold/header/header_gold.json` is
+  my draft; please spot-check (name/email/phone/links/city per resume) — the
+  header numbers can't be reported until then. Edge calls worth a look:
+  Aagam (`https://linkedin.com/` root link -> linkedin null), Sambhav/Agneesh/
+  Asif (Codeforces/CodeChef links under Awards counted as extra_links),
+  Simple_Hipster (bare handles), Jenil (visible email vs stale mailto).
 
 - **Checkpoint 7A:** open `data/gold/reading_order/index.html`; for ~10 pages say yes/no per page (is the numbering = how a human reads it?). Suggested: AltaCV p1+p2, Simple_Hipster_CV, Entry_Level_LaTeX, chief-information-officer-cio3, SambhavMirajgaonkar p1, Resume_Asif p1, AryanNiravShah, Jenil_Shah, sh_resu. Stage 7's "≥95 % on two-column files" target can't be claimed until then.
 

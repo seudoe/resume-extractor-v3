@@ -125,8 +125,8 @@ def split_regions(lines: list[Line], min_hgap: float) -> list[list[Line]]:
                     if hi - lo >= MIN_GUTTER:  # same gutter as the open group
                         group, gutter = group + slab, (lo, hi)
                         continue
-                elif not any(_spans_gap(l, gutter[0], gutter[1]) for l in slab):
-                    group = group + slab  # one-sided slab: sits inside a column
+                elif len({(l.bbox.x0 + l.bbox.x1) / 2 < (gutter[0] + gutter[1]) / 2 for l in slab}) == 1:
+                    group = group + slab  # one-sided slab: sits inside one column of the group
                     continue
                 flush()
             if cut:

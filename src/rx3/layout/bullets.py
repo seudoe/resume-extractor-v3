@@ -5,6 +5,8 @@ import re
 
 from ir import BBox, Line
 
+from rx3.layout.lines import CELL_SEP, cell_starts
+
 BULLET_GLYPHS = "•●○◦▪▫■□–—-*➢➤►✓✔·"
 _BULLET_RE = re.compile(rf"^\s*[{re.escape(BULLET_GLYPHS)}]\s*\S")
 _TERMINAL = ".:;!?"
@@ -66,8 +68,16 @@ def _is_continuation(prev: Line, cur: Line, right_edge: float, body_height: floa
     if cur.bbox.y0 < prev.bbox.y0:  # not below
         return False
     prev_start = _text_x0(prev)
+    if CELL_SEP in prev.text:
+        # A table-like row (degree | institution | dates, label | values) is a
+        # row, never a wrapped line — except its last cell wrapping onto the
+        # next line, which aligns to that cell's start.
+        if CELL_SEP in cur.text:
+            return False
+        prev_start = cell_starts(prev)[-1]
     hanging = is_bullet(prev.text) and prev.bbox.x0 < cur.bbox.x0 <= prev.bbox.x0 + 30.0
-    aligned = abs(cur.bbox.x0 - prev_start) <= 4.0 or hanging or (
+    first_line_indent = not is_bullet(prev.text) and 0 < prev.bbox.x0 - cur.bbox.x0 <= 30.0
+    aligned = abs(cur.bbox.x0 - prev_start) <= 4.0 or hanging or first_line_indent or (
         not is_bullet(prev.text) and abs(cur.bbox.x0 - prev.bbox.x0) <= 3.0
     )
     if not aligned:

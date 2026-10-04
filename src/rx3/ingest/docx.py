@@ -90,7 +90,7 @@ def ingest_docx(data: bytes, filename: str = "") -> Document:
     for table in doc.tables:
         for row in table.rows:
             cell_texts = [" ".join(p.text for p in cell.paragraphs).strip() for cell in row.cells]
-            row_text = " | ".join(t for t in cell_texts if t)
+            row_text = "\t".join(t for t in cell_texts if t)
             add_line(row_text, False, DEFAULT_FONT_SIZE, "", 0.0)
 
     links = [

@@ -309,3 +309,51 @@ reference the entry they replace rather than deleting it.
   can still be read as a column; multi-line date cells ("Jan 2022 -" /
   "Present") leave "Present" as its own line (Stage 11's date parser must
   join them).
+
+## Stage 6/7 revision — user review feedback + Tesseract (2026-10-04)
+
+- **User's 7A review found one root problem: information from different
+  fields got mixed into single lines.** Cases: education table rows
+  (degree | institution | dates | CGPA) glued into one box and then glued
+  *to each other*; skills rows ("Technical Tools / Soft Skills / Languages")
+  merged; contact items (email | phone | linkedin | github) and AltaCV's
+  contact grid merged. Root causes, all in Stage 7: (1) wrapped-line merge
+  treated consecutive table rows as one wrapped paragraph; (2) baseline merge
+  flattened cells into plain space-joined text, so "where one field ends and
+  the next begins" was lost; (3) AltaCV's column-heading row was absorbed into
+  the contact-row group.
+- **Fixes:** cells are now explicit — gaps ≥ 1.0 × font size between spans or
+  same-row segments are joined with `\t` (`CELL_SEP`) in `Line.text`
+  (`layout/lines.py::cell_text`; DOCX table cells use the same separator).
+  A line containing a tab is a row, never a wrapped line; the only continuation
+  allowed is its *last cell* wrapping (aligned to that cell's start,
+  `cell_starts`). First-line-indented paragraphs now merge (the Vicky
+  "Career Objective" paragraph was split into 3 lines). A no-cut slab joins an
+  open column group only if it sits entirely on one side. Stage 10 should
+  split entries by `\t` cells instead of regex-guessing field boundaries.
+- **Tesseract 5.5.3 is installed** (`C:\Program Files\Tesseract-OCR`, user
+  note) — **resolves the Stage 6 open question and Checkpoint 3A's deferral.**
+  Same 6 resumes, 2 threads (`OMP_THREAD_LIMIT=2`):
+
+  | engine | DPI | s/page | mean CER | mean WER |
+  |---|---|---|---|---|
+  | RapidOCR | 150 | 24.4 | 0.154 | 0.317 |
+  | RapidOCR | 300 | 23.9 | 0.169 | 0.267 |
+  | Tesseract psm 3 | 150 | 1.4 | 0.140 | 0.218 |
+  | Tesseract psm 3 | 300 | 2.2 | 0.130 | 0.205 |
+  | Tesseract psm 4 | 300 | 2.1 | 0.134 | 0.215 |
+  | Tesseract psm 6 | 300 | 2.0 | 0.136 | 0.218 |
+
+  **Decision: Tesseract, psm 3, 300 DPI is the default OCR engine** (meets the
+  §4.7 target of ≤ 6 s/page with ~3x margin; lowest WER). RapidOCR stays as an
+  automatic fallback when no Tesseract binary exists (`RX3_OCR_ENGINE`
+  overrides; `ocr/select.py::get_engine`). PSM choice is noise-level, so the
+  default auto-segmentation stays. High-CER files (Vedant, LaTeX template,
+  ~0.32–0.40 for both engines) are reading-order differences against the raw
+  text-layer reference, not recognition errors.
+- **OCR → layout works end to end**: an image-only Vicky resume yields the
+  same education rows/cells as the text-layer version. Known OCR noise: bullet
+  glyphs misread as a stray letter ("e", "9"); not normalised yet.
+- Tesseract spans are per word with one size per line (tallest word × 0.9):
+  per-word size made x-height-only words look tiny and ordinary word gaps look
+  like cell gaps.

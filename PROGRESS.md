@@ -260,7 +260,8 @@ Windows-10-10.0.26200-SP0
 - `tests/test_layout.py` (8 tests: columns, header-first, dates not split,
   left date column, wrapped+dehyphenated bullet, stacked contacts, features,
   text rules). `pytest -q` → 31/31.
-- **🛑 Checkpoint 7A (open):** you verify reading order on ~10 pages.
+- **🛑 Checkpoint 7A (answered with problems → fixed, awaiting re-check):** user found fields mixing (education rows, skills rows, contact items). Fixed via explicit `	` cells + no row-merging (see DECISIONS "Stage 6/7 revision"). Overlays regenerated.
+- **Tesseract installed → now the default OCR engine** (2.2 s/page vs RapidOCR 24 s; lower WER). OCR latency open question closed.
 
 ## Next (superseded list below kept for history)
 
@@ -274,7 +275,7 @@ Windows-10-10.0.26200-SP0
 
 - **Checkpoint 7A:** open `data/gold/reading_order/index.html`; for ~10 pages say yes/no per page (is the numbering = how a human reads it?). Suggested: AltaCV p1+p2, Simple_Hipster_CV, Entry_Level_LaTeX, chief-information-officer-cio3, SambhavMirajgaonkar p1, Resume_Asif p1, AryanNiravShah, Jenil_Shah, sh_resu. Stage 7's "≥95 % on two-column files" target can't be claimed until then.
 
-- **OCR latency (needs your call):** RapidOCR ≈ 24 s/page vs ≤ 6 s target. Options: (a) install Tesseract (revisit Checkpoint 3A, admin install) and benchmark it, (b) try other onnxruntime versions/models, (c) accept OCR as a rare slow path. Re-measure when your LLM job isn't running.
+- ~~OCR latency~~ RESOLVED 2026-10-04: Tesseract installed, default engine, 2.2 s/page. (old note:) RapidOCR ≈ 24 s/page vs ≤ 6 s target. Options: (a) install Tesseract (revisit Checkpoint 3A, admin install) and benchmark it, (b) try other onnxruntime versions/models, (c) accept OCR as a rare slow path. Re-measure when your LLM job isn't running.
 
 - Real DOCX and FlowCV-equivalent fixtures are missing; Stage 5's exit check
   is satisfied with synthetic substitutes only. Revisit if those files come

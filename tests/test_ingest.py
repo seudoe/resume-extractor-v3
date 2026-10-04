@@ -84,7 +84,7 @@ def test_docx_ingest_paragraphs_headings_bullets_tables():
     assert "Alex Johnson" in texts
     assert doc.pages[0].lines[0].spans[0].bold is True  # Heading 1 -> bold
     assert any(t.startswith("•") for t in texts)  # bullet glyph added
-    assert "Skill | Python" in texts  # table flattened
+    assert "Skill	Python" in texts  # table cells tab-separated
 
 
 def test_docx_ingest_collects_hyperlinks():
@@ -133,28 +133,36 @@ def test_page_quality_does_not_flag_real_text_resume():
     assert all(page_quality(p)["needs_ocr"] is False for p in doc.pages)
 
 
-@requires_gold
-def test_ocr_fallback_recovers_text_from_image_only_pdf():
-    """Stage 6 exit check: an image-only PDF (no text layer) goes through
-    OCR and yields readable text. Slow (~20s on CPU, RapidOCR)."""
+def _image_only_pdf(path):
     import pymupdf
 
-    from rx3.ocr.select import apply_ocr_fallback
-
-    path = GOLD_PDF_DIR / "Vedant Patil.pdf"
-    if not path.exists():
-        pytest.skip("Vedant Patil.pdf not found")
     src = pymupdf.open(path)
     pix = src[0].get_pixmap(dpi=150)
     img_pdf = pymupdf.open()
     page = img_pdf.new_page(width=src[0].rect.width, height=src[0].rect.height)
     page.insert_image(page.rect, pixmap=pix)
-    data = img_pdf.tobytes()
+    return img_pdf.tobytes()
+
+
+@requires_gold
+@pytest.mark.parametrize("engine", ["tesseract", "rapid"])
+def test_ocr_fallback_recovers_text_from_image_only_pdf(engine):
+    """Stage 6 exit check: an image-only PDF (no text layer) goes through OCR
+    and yields readable text. RapidOCR is slow (~20 s); Tesseract ~2 s."""
+    from rx3.ocr import tesseract
+    from rx3.ocr.select import apply_ocr_fallback
+
+    if engine == "tesseract" and not tesseract.available():
+        pytest.skip("Tesseract not installed")
+    path = GOLD_PDF_DIR / "Vedant Patil.pdf"
+    if not path.exists():
+        pytest.skip("Vedant Patil.pdf not found")
+    data = _image_only_pdf(path)
 
     doc = ingest_pdf(data)
     assert page_quality(doc.pages[0])["needs_ocr"] is True  # no text layer
 
-    doc = apply_ocr_fallback(doc, data)
+    doc = apply_ocr_fallback(doc, data, engine=engine)
     text = " ".join(line.text for line in doc.pages[0].lines).upper()
     assert all(line.source == "ocr" for line in doc.pages[0].lines)
     assert "VEDANT" in text and "GMAIL.COM" in text

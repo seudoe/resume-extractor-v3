@@ -24,7 +24,7 @@ import pymupdf  # noqa: E402
 
 from _resume_data_layout import GOLD_CATEGORY, pdf_path  # noqa: E402
 from rx3.ingest.pdf import ingest_pdf  # noqa: E402
-from rx3.ocr.rapid import ocr_page  # noqa: E402
+from rx3.ocr import rapid, tesseract  # noqa: E402
 
 # Single-column text resumes: reading-order differences between the OCR and
 # the embedded layer would otherwise be scored as OCR character errors.
@@ -46,7 +46,7 @@ def _nospace(text: str) -> str:
     return "".join(text.split())
 
 
-def bench(dpis: list[int], stems: list[str]) -> list[dict]:
+def bench(engine: str, dpis: list[int], stems: list[str], psm: int) -> list[dict]:
     import psutil
 
     proc = psutil.Process()
@@ -61,11 +61,16 @@ def bench(dpis: list[int], stems: list[str]) -> list[dict]:
         for dpi in dpis:
             rss0 = proc.memory_info().rss
             t = time.perf_counter()
-            page = ocr_page(pdf[0], 0, 0, dpi=dpi)
+            page = (
+                rapid.ocr_page(pdf[0], 0, 0, dpi=dpi)
+                if engine == "rapid"
+                else tesseract.ocr_page(pdf[0], 0, 0, dpi=dpi, psm=psm)
+            )
             dt = time.perf_counter() - t
             hyp = _norm(" ".join(l.text for l in page.lines))
             rows.append(
                 {
+                    "engine": engine if engine == "rapid" else f"tesseract-psm{psm}",
                     "stem": stem,
                     "dpi": dpi,
                     "seconds": round(dt, 2),
@@ -83,11 +88,14 @@ def bench(dpis: list[int], stems: list[str]) -> list[dict]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dpis", type=int, nargs="+", default=[150, 200, 300])
+    ap.add_argument("--engine", choices=["rapid", "tesseract"], default="rapid")
+    ap.add_argument("--psm", type=int, default=3)
     ap.add_argument("--limit", type=int, default=len(SAMPLE_STEMS))
     args = ap.parse_args()
-    rows = bench(args.dpis, SAMPLE_STEMS[: args.limit])
+    rows = bench(args.engine, args.dpis, SAMPLE_STEMS[: args.limit], args.psm)
 
-    out = ROOT / "reports" / f"ocr_bench_{date.today().isoformat()}"
+    tag = rows[0]["engine"] if rows else args.engine
+    out = ROOT / "reports" / f"ocr_bench_{date.today().isoformat()}_{tag}"
     out.with_suffix(".json").write_text(json.dumps(rows, indent=2), encoding="utf-8")
     lines = ["| DPI | mean s/page | max s | mean CER | mean CER (no spaces) | mean WER |", "|---|---|---|---|---|---|"]
     for dpi in args.dpis:

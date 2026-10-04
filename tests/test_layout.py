@@ -44,7 +44,7 @@ def test_right_aligned_dates_stay_on_their_row():
         y = 100 + i * 40
         lines += [mk(org, 40, y, 200), mk(date, 460, y, 540), mk(f"did things at {org} for a while", 40, y + 14, 330)]
     out = texts(run(lines))
-    assert "Acme Corp 2020 - 2022" in out and "Initech 2016 - 2018" in out
+    assert "Acme Corp	2020 - 2022" in out and "Initech	2016 - 2018" in out  # one row, cells kept apart
 
 
 def test_left_date_column_is_not_a_column():
@@ -53,7 +53,7 @@ def test_left_date_column_is_not_a_column():
         y = 100 + i * 50
         lines += [mk(date, 40, y, 100), mk(f"Engineer {i}", 130, y, 300, size=10, bold=True), mk(f"Built stuff number {i} for the team", 130, y + 14, 440)]
     out = texts(run(lines))
-    assert "Jan 2022 - Engineer 0" in out
+    assert "Jan 2022 -	Engineer 0" in out
 
 
 def test_wrapped_bullet_is_merged_and_dehyphenated():
@@ -87,3 +87,23 @@ def test_text_drawn_rule_is_dropped_and_flags_line_above():
     out = run([heading, rule, body])
     assert texts(out) == ["EXPERIENCE", "Built things for the team in 2020."]
     assert out[0].features.rule_below is True
+
+
+def test_table_rows_are_not_wrapped_into_each_other():
+    rows = [
+        mk("B.Tech in IT", 40, 100, 120), mk("Dwarkadas College of Engineering", 160, 100, 330),
+        mk("A.Y. 2024 - Present", 380, 100, 470), mk("CGPA: 9.10", 500, 100, 560),
+        mk("HSC", 40, 114, 70), mk("Ramniranjan Junior College of Science", 160, 114, 360),
+        mk("2023", 410, 114, 440), mk("79.2%", 510, 114, 560),
+    ]
+    out = texts(run(rows))
+    assert out == [
+        "B.Tech in IT	Dwarkadas College of Engineering	A.Y. 2024 - Present	CGPA: 9.10",
+        "HSC	Ramniranjan Junior College of Science	2023	79.2%",
+    ]
+
+
+def test_first_line_indented_paragraph_merges():
+    first = mk("BMS graduate specializing in finance with a strong foundation in analysis and", 60, 100, 540)
+    second = mk("strategic thinking. Adept at conducting research and preparing reports.", 40, 112, 540)
+    assert len(run([first, second])) == 1

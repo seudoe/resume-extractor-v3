@@ -66,8 +66,11 @@ def digest(items: list[tuple[str, str]]) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=200)
+    ap.add_argument("--gliner", action="store_true", help="enable the GLiNER refinement (RX3_ENABLE_GLINER=1)")
     ap.add_argument("--digest", help="internal: print the digest of 'cat/stem' items (JSON list) and exit")
     args = ap.parse_args()
+    if args.gliner:
+        os.environ["RX3_ENABLE_GLINER"] = "1"
     if args.digest:
         print(digest([tuple(x) for x in json.loads(args.digest)]))
         return
@@ -97,14 +100,14 @@ def main() -> None:
     det_items = [list(x) for x in items[:: max(1, len(items) // 12)]][:12]
     digests = []
     for seed in ("0", "1"):
-        env = {**os.environ, "PYTHONHASHSEED": seed, "PYTHONIOENCODING": "utf-8"}
+        env = {**os.environ, "PYTHONHASHSEED": seed, "PYTHONIOENCODING": "utf-8", "OMP_NUM_THREADS": "2"}
         r = subprocess.run([sys.executable, "-m", "eval.pipeline_eval", "--digest", json.dumps(det_items)], cwd=ROOT, env=env, capture_output=True, text=True)
         digests.append(r.stdout.strip() or r.stderr[-200:])
     deterministic = len(set(digests)) == 1 and len(digests[0]) == 64
 
     n_str = sum(h["n_checked"] for h in halluc)
     n_bad = sum(h["n_hallucinated"] for h in halluc)
-    md = [f"# Stage 12 pipeline eval — {date.today().isoformat()}", "",
+    md = [f"# Stage 12 pipeline eval{' (GLiNER on)' if args.gliner else ''} — {date.today().isoformat()}", "",
           f"{len(items)} resumes (AAA all + stratified LiveCareer), {len(crashes)} crashes.", "",
           f"- Schema validity: **{mean(valid):.1%}** ({sum(valid)}/{len(valid)})",
           f"- Hallucination (independent metric, derived values exempt): **{n_bad / max(n_str, 1):.2%}** "
@@ -118,7 +121,7 @@ def main() -> None:
         md += ["", "### Crashes", ""] + [f"- {c}/{s}: {e}" for c, s, e in crashes[:10]]
     md += ["", "### Hallucination examples (independent metric)", ""] + [f"- {c}/{s}: {x[:110]!r}" for c, s, x in flagged[:25]]
     md += ["", "### Dropped by grounding (first 15)", ""] + [f"- {c}/{s} {p}: {v!r}" for c, s, p, v in dropped[:15]]
-    path = ROOT / "reports" / f"pipeline_{date.today().isoformat()}.md"
+    path = ROOT / "reports" / f"pipeline{'_gliner' if args.gliner else ''}_{date.today().isoformat()}.md"
     path.write_text("\n".join(md) + "\n", encoding="utf-8")
     print("\n".join(md))
 

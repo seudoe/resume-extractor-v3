@@ -13,6 +13,7 @@ Two proxies, because only 3 gold resumes are hand-drafted so far:
 
 import argparse
 import json
+import os
 import sys
 from collections import defaultdict
 from datetime import date
@@ -39,6 +40,7 @@ from rx3.normalise.skills import build_skills  # noqa: E402
 
 ALIGNED = ROOT / "data" / "livecareer" / "aligned.jsonl"
 SIM = 0.9
+N_LIVECAREER = 0  # 0 = every aligned resume; set by --n
 
 
 def _jw(a: str, b: str) -> float:
@@ -54,19 +56,39 @@ def _label_date(v: str) -> str:
     return _ym(to_iso(v) or (f.end or f.start if f else ""))
 
 
+_REFINERS: dict = {}
+
+
+def refiner_for(strategy: str):
+    if strategy not in _REFINERS:
+        if strategy.startswith("slm"):
+            from rx3.fields.slm import SlmRefiner
+
+            _REFINERS[strategy] = SlmRefiner(strategy)
+        else:
+            from rx3.fields.gliner import GlinerRefiner
+
+            _REFINERS[strategy] = GlinerRefiner(strategy)
+    return _REFINERS[strategy]
+
+
 def run_extractor(name: str, pdf: Path) -> dict:
+    """name = <rules|gliner|hybrid>[+norm]: rules entries, optionally GLiNER-refined, optionally Stage 11 normalised."""
+    base, _, norm = name.partition("+")
+    if base not in ("rules", "gliner", "hybrid", "combined", "slm06", "slm17"):
+        raise SystemExit(f"unknown extractor {name!r}")
     doc = analyze_layout(ingest_pdf(pdf.read_bytes()))
-    if name == "rules":
-        return extract_rules(doc, pdf.name)
-    if name == "rules+norm":  # Stage 11 on top of the rules baseline
-        return normalise(extract_rules(doc, pdf.name), doc)
-    raise SystemExit(f"unknown extractor {name!r}")
+    raw = extract_rules(doc, pdf.name, refiner=None if base == "rules" else refiner_for(base))
+    return normalise(raw, doc) if norm else raw
 
 
 def livecareer(extractor: str) -> list[str]:
     tallies: dict[str, list[bool]] = defaultdict(list)
     n_pred = n_gold = n_match = 0
-    for line in ALIGNED.read_text(encoding="utf-8").splitlines():
+    lines = ALIGNED.read_text(encoding="utf-8").splitlines()
+    if N_LIVECAREER:  # evenly spaced subset (aligned.jsonl is category-ordered)
+        lines = lines[:: max(1, len(lines) // N_LIVECAREER)][:N_LIVECAREER]
+    for line in lines:
         rec = json.loads(line)
         pdf = pdf_path(rec["category"], rec["id"])
         pred = run_extractor(extractor, pdf)
@@ -116,12 +138,12 @@ def aaa_agreement(extractor: str) -> list[str]:
     res = defaultdict(list)
     sub = defaultdict(lambda: defaultdict(list))
     n = 0
-    for stem in stems_in_category(GOLD_CATEGORY):
+    for stem in stems_in_category(GOLD_CATEGORY)[: int(os.environ.get("RX3_EVAL_AAA_LIMIT", "0")) or None]:
         jp = json_path(GOLD_CATEGORY, stem)
         if not jp.exists():
             continue
         ref = json.loads(jp.read_text(encoding="utf-8"))
-        if extractor == "rules+norm":  # LLM wrote "B.Tech"; compare canonical degree names on both sides
+        if "+norm" in extractor:  # LLM wrote "B.Tech"; compare canonical degree names on both sides
             for e in ref.get("education", []):
                 e["field"]["type"] = canonical_degree(e["field"].get("type", ""))
         pred = run_extractor(extractor, pdf_path(GOLD_CATEGORY, stem))
@@ -165,13 +187,16 @@ def skills_eval(extractor: str) -> list[str]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--extractor", default="rules")
+    ap.add_argument("--n", type=int, default=0, help="LiveCareer resumes to score (evenly spaced); 0 = all aligned")
     args = ap.parse_args()
+    global N_LIVECAREER
+    N_LIVECAREER = args.n
     out = [f"# Stage 10 field eval — {args.extractor} — {date.today().isoformat()}", "",
            "## A. LiveCareer (weak HTML labels, held-out)", ""] + livecareer(args.extractor)
     out += ["", "## B. AAA agreement with LLM JSONs", ""] + aaa_agreement(args.extractor)
     if args.extractor == "rules+norm":
         out += ["", "## C. Skills names vs LLM JSONs (AAA)", ""] + skills_eval(args.extractor)
-    path = ROOT / "reports" / f"fields_{args.extractor}_{date.today().isoformat()}.md"
+    path = ROOT / "reports" / f"fields_{args.extractor}_n{args.n}_{date.today().isoformat()}.md"
     path.write_text("\n".join(out) + "\n", encoding="utf-8")
     print("\n".join(out))
 

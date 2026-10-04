@@ -7,6 +7,7 @@ Stages: ingest (+OCR fallback) -> layout -> sections -> header -> rules entries 
 dedupe/order -> confidence -> validate. Deterministic: no randomness, no network, no model calls yet (GLiNER
 slots in at the rules stage once Stage 10 finishes)."""
 
+import os
 import time
 from pathlib import Path
 
@@ -42,7 +43,9 @@ def _kind(data: bytes, filename: str) -> str:
     raise UnsupportedFormat(f"unsupported file type {ext or 'unknown'!r} (PDF or DOCX only)")
 
 
-def extract(data: bytes, filename: str = "", debug: bool = False, with_confidence: bool = False) -> dict:
+def extract(data: bytes, filename: str = "", debug: bool = False, with_confidence: bool = False, gliner: bool | None = None) -> dict:
+    """`gliner`: refine entry fields with GLiNER2 (Stage 10). None -> env RX3_ENABLE_GLINER=1; off by default so the
+    rules-only path needs neither torch nor the model download."""
     timings: dict[str, float] = {}
     t0 = last = time.perf_counter()
 
@@ -69,8 +72,21 @@ def extract(data: bytes, filename: str = "", debug: bool = False, with_confidenc
     lap("sections")
     header = extract_header(doc, filename)
     lap("header")
-    raw = extract_rules(doc, filename, sections=sections, header=header)
+    refiner = None
+    if os.environ.get("RX3_ENABLE_SLM") == "1":  # Stage 13 experiment, off by default and not recommended (see DECISIONS)
+        from rx3.fields.slm import SlmRefiner
+
+        refiner = globals().setdefault("_SLM", SlmRefiner("slm17", use_cache=False))
+        refiner.last_ms = 0.0
+    elif (os.environ.get("RX3_ENABLE_GLINER") == "1") if gliner is None else gliner:
+        from rx3.fields.gliner import shared_refiner
+
+        refiner = shared_refiner()
+        refiner.last_ms = 0.0
+    raw = extract_rules(doc, filename, sections=sections, header=header, refiner=refiner)
     lap("entries")
+    if refiner:
+        timings["gliner"] = round(refiner.last_ms, 1)  # already inside "entries"
     norm = normalise(raw, doc, keep_private=True)
     lap("normalise")
     grounded = grounding.ground(norm, doc)
@@ -99,5 +115,6 @@ def extract(data: bytes, filename: str = "", debug: bool = False, with_confidenc
             "provenance": grounded.provenance,
             "confidence": conf,
             "uncalibrated_confidence": confidence.UNCALIBRATED,
+            "gliner": refiner is not None,
         }
     return final

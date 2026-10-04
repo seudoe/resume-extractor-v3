@@ -10,7 +10,7 @@ LIST_SECTIONS = ["workHistory", "education", "skills", "projects", "certificatio
                  "publications", "affiliations", "awards", "interests"]
 
 
-def extract_rules(doc: Document, filename: str = "", sections=None, header=None) -> dict:
+def extract_rules(doc: Document, filename: str = "", sections=None, header=None, refiner=None) -> dict:
     """`doc` must already be through `analyze_layout`. `sections` / `header` can be passed in when the caller
     already ran (and timed) those stages."""
     by_id = {l.id: l for p in doc.pages for l in p.lines}
@@ -21,7 +21,7 @@ def extract_rules(doc: Document, filename: str = "", sections=None, header=None)
         lines = [by_id[i] for i in s.line_ids]
         if s.inline and s.heading:  # "Languages<tab>English, Hindi": drop the label itself
             lines = [l.model_copy(update={"text": l.text.replace(s.heading, "", 1).lstrip(" :\t-–")}) for l in lines]
-        built = build_section(s.name, lines)
+        built = build_section(s.name, lines, refiner)
         if s.name == "summary":
             out["summary"] = (out["summary"] + " " + built).strip()
         else:

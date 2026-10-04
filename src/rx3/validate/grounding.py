@@ -193,7 +193,7 @@ def ground(data: dict, doc: Document) -> Grounded:
             local = node.get("_lines", prefer)
             out = {}
             for k, v in node.items():
-                if k in ("_lines", "_heading"):
+                if k.startswith("_"):  # provenance / debug metadata (_lines, _heading, _gliner), never output text
                     out[k] = v
                 elif k == "period":
                     out[k] = v  # derived from the entry's raw date text

@@ -254,7 +254,7 @@ ENTRY_BUILDERS = {"workHistory": work, "education": education, "projects": proje
 PER_LINE = {"awards", "certifications", "publications"}  # one bullet = one entry when nothing is styled
 
 
-def build_section(name: str, lines: list[Line]) -> list[dict] | str:
+def build_section(name: str, lines: list[Line], refiner=None) -> list[dict] | str:
     if name == "summary":
         return " ".join(strip_glyph(l.text.replace(CELL, " ")) for l in lines)
     if name == "skills":
@@ -268,11 +268,12 @@ def build_section(name: str, lines: list[Line]) -> list[dict] | str:
         entries = split_entries(_split_degrees(lines) if edu else lines, _edu_opens if edu else None)
         if name in PER_LINE and len(entries) <= 1 and len(lines) > 2:
             entries = per_line_entries(lines)
-        out = []
-        for x in entries:
-            e = ENTRY_BUILDERS[name](x)
-            if any(v for v in e.values() if v):
-                e["_lines"] = [l.id for l in x.lines]  # provenance for Stages 11-12 (stripped before output)
-                out.append(e)
-        return out
+        built = [(x, ENTRY_BUILDERS[name](x)) for x in entries]
+        built = [(x, e) for x, e in built if any(v for v in e.values() if v)]
+        dicts = [e for _, e in built]
+        if refiner:  # e.g. GLiNER: may overwrite fields of the rule dicts, given the Entry objects
+            dicts = refiner(name, [x for x, _ in built], dicts)
+        for (x, _), e in zip(built, dicts):
+            e["_lines"] = [l.id for l in x.lines]  # provenance for Stages 11-12 (stripped before output)
+        return dicts
     return []

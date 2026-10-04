@@ -391,6 +391,56 @@ Windows-10-10.0.26200-SP0
   install go-ahead; the 26 flagged strings are mostly header-link labels
   ("Portfolio"), small-caps names, and a few template rows.
 
+### Stage 10 (part 2) — GLiNER2 zero-shot, combined per field
+
+- Installed in `.venv` (user approved both experiments): CPU `torch 2.14.1`,
+  `gliner2[local]` (+ transformers, peft), model `fastino/gliner2.5-base-v1`
+  (downloaded on first load, HF cache). `pyproject.toml`: `gliner` / `slm` extras.
+- `src/rx3/fields/gliner/`: per entry block (head lines, cells joined with ` | `)
+  `batch_extract_json` with a per-section schema, `include_spans=True`; spans are
+  mapped back to line ids (`_gliner` debug metadata keeps lines + confidence).
+  `rules/build.py` got a `refiner` hook; `extract_rules(refiner=...)`.
+- **Chosen configuration** (`COMBINE`, one joint cut-off): GLiNER overrides the
+  rules value for company/title/location/institution/degree/course when its
+  confidence >= 0.9. `eval/combine_search.py` (n=100 LiveCareer + AAA vs LLM
+  JSONs): company 57.6 -> **84.3**, LiveCareer school 53.9 -> **77.0**, AAA
+  institution 82.8 -> **89.8**, course 52.1 -> 61.5, AAA entity F1 work 56.6 ->
+  **76.0**, education 75.1 -> **81.5**; costs: LiveCareer title recall 83.5 ->
+  82.7, degree 83.6 -> 81.1. Pure GLiNER (no cut-off) is worse on title/degree.
+- Pipeline: `extract(..., gliner=None)` / env `RX3_ENABLE_GLINER=1` (**off by
+  default**). With it on (224 resumes): schema validity 100 %, hallucination
+  **0.18 %**, byte-identical across processes, 0 crashes.
+- **Latency miss**: GLiNER adds p50 **1.87 s** / p95 3.3 s per resume (2 threads;
+  ~0.33 s per entry block); whole pipeline p50 1.97 s vs 99 ms rules-only. The
+  PROMPT budget (~600 ms for the stage) is **not met**. Tried: dynamic int8
+  (1.6x faster, but only 72.5 % field agreement with fp32 -> rejected); shorter
+  schema text (22 % faster, 92 % agreement -> not adopted).
+- Not done (Stage 10): synthetic template renderer, LoRA fine-tune (Checkpoint
+  10A: not proposed/approved yet), token classifier (10B). The zero-shot gain
+  suggests a fine-tune would help most on title/degree and could replace the
+  0.9 cut-off.
+
+### Stage 13 — Small-LM experiment (done at the user's request; NOT shipped)
+
+- `src/rx3/fields/slm/`: Qwen3-0.6B / 1.7B (`unsloth/*-GGUF` Q4_K_M, ~0.4 / 1.1
+  GB in `models/slm/`, gitignored) through `llama-cpp-python 0.3.36` (prebuilt CPU
+  wheel). Per entry block: numbered lines in, JSON out (`{line, text}` per field)
+  enforced by a JSON-schema grammar, thinking off (`/no_think`), each answer
+  grounded in the pointed line else dropped. Flag `RX3_ENABLE_SLM=1` (off).
+- Result (same metrics, subsets noted; weak references):
+  - Latency: median **5.0 s per entry block** on 2 threads (0.6B ~1-4 s, 1.7B
+    4-6.5 s), i.e. ~25 s per resume vs 600 ms budget.
+  - Qwen3-0.6B (n=15 LiveCareer + 32 AAA): work title recall 47.9 % (rules 87.3,
+    GLiNER 84.5 on the same subset), school 37.5 %, degree-type 23 %.
+  - Qwen3-1.7B (10 AAA + 6 LiveCareer, tiny): work recall 71.4 % (rules 89.3,
+    GLiNER 85.7), company 90.3 % (GLiNER 91.7), title 90.3 % (rules 100), school
+    50 % (GLiNER 75), degree/course 31 / 38 %.
+- Verdict: loses to the encoder path on accuracy **and** fails latency by ~40x.
+  Do not ship; revisit only with a fine-tuned small model on a GPU (Checkpoint
+  13B, not requested). Failure modes: tiny model copies whole lines, picks null
+  when allowed, mislabels institution vs degree.
+- Tests: `tests/test_gliner_slm.py` (2, offline fakes); `pytest -q` -> 82/82.
+
 ## Next (superseded list below kept for history)
 
 - Stage 6: OCR fallback (RapidOCR + optional Tesseract benchmark). Real

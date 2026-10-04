@@ -24,7 +24,9 @@ dependencies = [
 # Stage 10's GLiNER2 extractor is deliberately NOT in `dependencies`: its
 # runtime pulls in torch, which is a large download (see DECISIONS.md Stage 3)
 # and isn't needed before Stage 10. Install with `uv sync --extra gliner`.
-gliner = ["gliner2[local]"]
+gliner = ["gliner2[local]"]  # CPU torch: uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+# Stage 13 experiment only (RX3_ENABLE_SLM, off by default). Prebuilt wheel: --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+slm = ["llama-cpp-python"]
 dev = [
     "pytest>=8.3",
     "scipy>=1.14",

@@ -691,3 +691,39 @@ reference the entry they replace rather than deleting it.
   `_confidence`).
 - **Not done**: the ifind compatibility `_meta` object (decide in Stage 14),
   size/page limits and timeouts (Stage 14 API), `.doc` conversion (Stage 14).
+
+## Stage 10 (part 2) and Stage 13 — GLiNER2 zero-shot and the small-LM experiment
+
+- **Consent and installs**: the user answered "do both stage 10 GLiNER and the SLM
+  experiment" at Checkpoint 13A after being told the sizes (multi-GB GLiNER stack,
+  ~0.5-1.5 GB for GGUFs). Installed into the project `.venv` only: CPU torch
+  (not the 2.5 GB CUDA build, since inference targets CPU), gliner2[local],
+  llama-cpp-python (prebuilt CPU wheel), model files in HF cache and
+  `models/slm/`. No training was run (Checkpoint 10A not triggered).
+- **Where GLiNER sits**: after rules segmentation, per entry head block, because
+  the rules already find boundaries well (dates ~99 %) and GLiNER fixes the
+  role assignment (company, school, course). Spans map to line ids, so every
+  value is an exact source substring and grounds by construction.
+- **Cut-off choice**: an early per-field search suggested field-specific cut-offs;
+  that conclusion was an artefact of a bug (a loop variable shadowed the record
+  key so only the first entry of a section was refined). After the fix a single
+  joint cut-off of 0.9 matched or beat per-field choices, so the config is one
+  number. GLiNER outputs are cached (`data/cache/gliner_cache.json`, keyed by
+  section+text; verified batch-composition independent) so evals are repeatable;
+  production uses no cache.
+- **Latency is a real miss** (p50 +1.87 s). Quantisation lost too much accuracy
+  (dynamic int8: 72.5 % of confident fields unchanged), so the model stays fp32.
+  Options for Stage 14, user's call: (a) ship GLiNER on (adds ~2 s per resume,
+  well inside the 30 s request cap), (b) run it only on education + company
+  (~half the blocks), (c) GPU in the Space, (d) fine-tune a smaller encoder.
+- **Default flags**: `RX3_ENABLE_GLINER` off, `RX3_ENABLE_SLM` off. The library
+  path stays torch-free; the Docker/API stage sets the flag.
+- **SLM design** (Stage 13): pointer outputs per entry block, JSON-schema grammar,
+  `/no_think`, grounding of every answer in the pointed line. Allowing `null`
+  made both models answer null for everything, so absent = line -1. Result and
+  verdict in PROGRESS: worse accuracy than rules/GLiNER and ~25 s per resume;
+  not shipped. The 1.7B comparison is on a tiny subset because a full run was
+  ~2 h at this speed; the direction is unambiguous but the numbers are noisy.
+- **Eval hygiene**: `fields_eval --extractor <rules|gliner|hybrid|combined|slm06|slm17>[+norm]`
+  and `RX3_EVAL_AAA_LIMIT`. AAA agreement still uses LLM JSON as the reference
+  (not gold); LiveCareer labels are weak. All numbers are dev numbers.

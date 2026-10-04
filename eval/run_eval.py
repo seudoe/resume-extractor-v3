@@ -83,10 +83,10 @@ def run(baseline: str) -> dict:
         candidates = load_llm_baseline()
     elif baseline == "llm-groq":  # Groq + layout text calibration run (resume-data/calibration/groq-layout)
         candidates = load_llm_baseline(root=CALIBRATION_GROQ_LAYOUT)
-    elif baseline == "rx3":  # rules baseline over the AAA PDFs (Stage 10)
+    elif baseline in ("rx3", "v3"):  # the rx3 pipeline over the AAA PDFs
         candidates = load_rx3_baseline()
     else:
-        raise SystemExit(f"unknown --baseline {baseline!r} (only 'v2'/'ai'/'llm'/'llm-groq'/'rx3' exist before Stage 12)")
+        raise SystemExit(f"unknown --baseline {baseline!r} (only 'v2'/'ai'/'llm'/'llm-groq'/'rx3'/'v3' exist before Stage 12)")
 
     scalar_totals: dict[str, list[bool]] = {}
     entity_totals: dict[str, list[dict]] = {s: [] for s in ENTITY_SECTIONS}

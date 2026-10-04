@@ -353,6 +353,44 @@ Windows-10-10.0.26200-SP0
   GLiNER, still waiting on the torch install go-ahead); skills F1 is measured
   against LLM output, not gold.
 
+### Stage 12 — Grounding, validation, confidence, pipeline
+
+- `src/rx3/pipeline.py`: `extract(bytes, filename, debug=False, with_confidence=False)`
+  runs ingest (+OCR fallback) -> layout -> sections -> header -> rule entries
+  -> normalise -> ground -> dedupe/order -> confidence -> validate, with
+  per-stage timings in `_debug.timings_ms`. `UnsupportedFormat` (-> 415) and
+  `UnreadableDocument` (-> 422) for the API stage.
+- `src/rx3/validate/`: `grounding.py` (every string must be found in a source
+  line, exact or fuzzy >= 0.9 or ordered tokens; else dropped + logged; derived
+  values — ISO dates, canonical degree/skill names, phones, enums, group names —
+  inherit the entry's provenance), `clean.py` (drop empty entries, fuzzy dedupe
+  >= 0.95, document order by line id, pydantic validate with per-entry
+  fallback, never raises), `confidence.py` (+ `_calibration.json`).
+- Provenance: `_debug.provenance` maps each grounded field path to source line ids.
+- Confidence: calibrated on LiveCareer weak labels (455 resumes, fit on even
+  ids, reported on odd): work title ECE 0.015 (mean conf .940 vs acc .952),
+  period 0.012, education degree 0.085, institution 0.114 (weak). Everything
+  else is a fixed prior, listed in `_debug.uncalibrated_confidence`.
+- Exit check (`uv run python -m eval.pipeline_eval`, 224 resumes: all AAA +
+  stratified LiveCareer): schema validity **100 %**; hallucination **0.18 %**
+  (26 / 14,658 strings, independent PyMuPDF text + link annotations as source;
+  target <= 0.5 %); determinism **byte-identical** across two processes with
+  different `PYTHONHASHSEED`; 0 crashes.
+- Latency (warm, this machine, single process): total p50 **99 ms**, p95 205 ms
+  (ingest 26, layout 13, header 9, normalise 38 p50). OCR scans are extra
+  (Tesseract ~2 s/page).
+- `run_eval --baseline v3` (alias `rx3`) now runs the full pipeline on AAA. On the
+  3 draft-gold files entity F1 is unchanged from the rules baseline (workHistory
+  .67, education .67, projects .33...): the gap is entry segmentation, not
+  grounding.
+- Tests: `tests/test_pipeline.py` (5); `pytest -q` -> 80/80.
+- Metric fixes found while measuring: `eval/metrics._norm` now NFKC-folds and
+  strips curly quotes (the pipeline's text is NFKC + ftfy); hallucination
+  exempts normalised values (documented in DECISIONS).
+- Open: GLiNER stage (Stage 10) still not started — waiting on the torch
+  install go-ahead; the 26 flagged strings are mostly header-link labels
+  ("Portfolio"), small-caps names, and a few template rows.
+
 ## Next (superseded list below kept for history)
 
 - Stage 6: OCR fallback (RapidOCR + optional Tesseract benchmark). Real

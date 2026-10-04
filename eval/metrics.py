@@ -5,6 +5,7 @@ without needing the v3 pipeline to exist yet.
 """
 
 import re
+import unicodedata
 from datetime import datetime
 
 from rapidfuzz.distance import JaroWinkler
@@ -19,8 +20,8 @@ HALLUCINATION_SIMILARITY = 0.9  # "fuzzy >= 0.9" for hallucination detection
 def _norm(s) -> str:
     if s is None:
         return ""
-    s = str(s).strip().lower()
-    s = re.sub(r"[.,;:!?'\"()\[\]]", "", s)
+    s = unicodedata.normalize("NFKC", str(s)).strip().lower()  # ligatures etc.; the pipeline's text is NFKC + ftfy
+    s = re.sub(r"[.,;:!?'\"()\[\]‘’“”«»„]", "", s)
     s = re.sub(r"\s+", " ", s)
     return s
 
@@ -262,9 +263,36 @@ def _all_output_strings(parsed: dict) -> list[str]:
     return strings
 
 
+_DERIVED = re.compile(r"^(?:\d{4}-\d{2}(?:-\d{2})?|\+\d{7,15}|present|job|internship|volunteer|co-op|paper|article|talk|"
+                      r"(?:cgpa|gpa|percentage|marks)\s*:.*)$", re.I)
+
+
+def _is_derived(s: str, source_norm: str) -> bool:
+    """Normalised values (PROMPT.md Stage 12: dates, phones, enums, score labels, canonical degree / skill names,
+    taxonomy group names) are not text copies; they are verified through the raw text they came from. Skill and degree
+    names count when one of their raw aliases occurs in the source."""
+    if _DERIVED.match(s.strip()):
+        return True
+    if re.match(r"^https?://", s.strip(), re.I):  # a URL the header rebuilt from a handle ("github: seudoe"): the handle must be there
+        tail = _norm(s.strip().rstrip("/").rsplit("/", 1)[-1])
+        if len(tail) >= 3 and tail in source_norm:
+            return True
+    try:
+        from rx3.normalise._tech import TECH
+        from rx3.normalise.education import _COMPILED
+        from rx3.normalise.skills import _canon_map
+    except ImportError:
+        return False
+    if s in TECH or s == "Other Skills":
+        return True
+    if any(name == s for name, _ in _COMPILED):
+        return True  # canonical degree: its abbreviation (B.Tech, MBA...) was in the entry's text
+    return any(c == s and re.search(rf"(?<![0-9a-z]){re.escape(_norm(a))}(?![0-9a-z])", source_norm) for a, (c, _) in _canon_map().items())
+
+
 def hallucination_rate(predicted: dict, source_text: str) -> dict:
     source_norm = _norm(source_text)
-    strings = _all_output_strings(predicted)
+    strings = [x for x in _all_output_strings(predicted) if not _is_derived(x, source_norm)]
     if not strings:
         return {"rate": 0.0, "n_checked": 0, "n_hallucinated": 0, "examples": []}
 

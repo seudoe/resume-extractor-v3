@@ -646,3 +646,48 @@ reference the entry they replace rather than deleting it.
   not date parsing. Skills F1 69.0 is against LLM output.
 - **Not done / next**: nothing in `normalise` fixes entry boundaries; GLiNER
   (Stage 10) is expected to. `uv.lock` is stale after adding `hypothesis`.
+
+## Stage 12 — grounding, validation, confidence
+
+- **Grounding rule**: a string is kept if its normalised form (NFKC, lowercase,
+  alphanumerics only) is in a source line, searched in the entry's own lines
+  first; else fuzzy `partial_ratio` >= 0.9 (strings >= 6 chars); else all tokens
+  in order with <= 2 foreign tokens between (a date cut out of "Dean's List 2012
+  (Top 10%)"). Otherwise it is dropped and logged (`_debug.dropped_ungrounded`).
+  A list element whose every text field is dropped goes with it (e.g. a skill).
+- **Derived values** are not text copies and are not text-checked: ISO dates and
+  `lastUsed`, canonical degree names (provenance = the entry's lines), enums
+  (`type`), taxonomy group names, E.164 phones (last 8 digits must be in the
+  source digits), score strings (the figures must be in the source), link labels
+  of `extra_links`. Skill names pass when the name *or any curated alias* occurs
+  as whole words; `techStack` entries use the same rule (e.g. "NodeJS" ->
+  "Node.js"). URLs pass if they equal a link annotation or their handle (last
+  path segment) is in the text (the header rebuilds `github.com/<handle>` from
+  "github: handle").
+- **Independent hallucination metric**: `eval/pipeline_eval.py` checks outputs
+  against PyMuPDF plain text + link annotation URIs (not the pipeline's layout
+  text; pypdf text in `resume-data/TEXTs` turned out to miss content for some
+  PDFs, so it is only the fallback for scanned files). The metric exempts the
+  same derived classes; header link labels like "Portfolio" and small-caps
+  names are *not* exempt and make up most of the remaining 0.18 %.
+- **Dedupe**: fuzzy key (Jaro-Winkler >= 0.95) per section; work entries only
+  merge when the start date matches; merging fills empty scalars and appends
+  unseen list items. Entries with no key field (no title/company/dates; no
+  institution/degree; ...) are dropped. Order = first source line id.
+- **Validation** never raises: pydantic errors drop the offending list entry (or
+  reset the field) and retry; a pathological failure returns the empty object
+  with a note.
+- **Confidence**: measured, not guessed, where labels exist. Buckets per field
+  (title: lexicon hit / <= 6 words / has date; institution: keyword / length;
+  degree: canonical / has course; period: both ends / any) map to the observed
+  accuracy on LiveCareer weak labels, Laplace-smoothed, fit on even resume ids,
+  reported on odd ids, final table refit on all. The labels come from one
+  template family, so the numbers are conditional on that; header scores reuse
+  the Stage 8 component confidences; skills use table-hit priors; the rest are
+  fixed priors (`UNCALIBRATED` list). Company, location and entity-level
+  confidence have no labels (company/city are anonymised in LiveCareer).
+- **Determinism**: no set-ordering or randomness is serialised; verified across
+  processes with `PYTHONHASHSEED` 0 vs 1 on 12 files (byte-identical JSON incl.
+  `_confidence`).
+- **Not done**: the ifind compatibility `_meta` object (decide in Stage 14),
+  size/page limits and timeouts (Stage 14 API), `.doc` conversion (Stage 14).

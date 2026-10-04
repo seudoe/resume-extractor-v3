@@ -10,11 +10,12 @@ LIST_SECTIONS = ["workHistory", "education", "skills", "projects", "certificatio
                  "publications", "affiliations", "awards", "interests"]
 
 
-def extract_rules(doc: Document, filename: str = "") -> dict:
-    """`doc` must already be through `analyze_layout`."""
+def extract_rules(doc: Document, filename: str = "", sections=None, header=None) -> dict:
+    """`doc` must already be through `analyze_layout`. `sections` / `header` can be passed in when the caller
+    already ran (and timed) those stages."""
     by_id = {l.id: l for p in doc.pages for l in p.lines}
     out: dict = {"summary": "", **{k: [] for k in LIST_SECTIONS}}
-    for s in segment_sections(doc):
+    for s in (sections if sections is not None else segment_sections(doc)):
         if s.name in ("header", "other"):
             continue
         lines = [by_id[i] for i in s.line_ids]
@@ -28,5 +29,5 @@ def extract_rules(doc: Document, filename: str = "") -> dict:
                 if isinstance(e, dict):
                     e["_heading"] = s.heading or ""
             out[s.name] += built
-    out["metaDetails"] = extract_header(doc, filename).meta
+    out["metaDetails"] = (header or extract_header(doc, filename)).meta
     return out

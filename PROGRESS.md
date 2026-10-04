@@ -2,7 +2,7 @@
 
 ## Current stage
 
-**Stage 8 — Header & contact rules.** Done; dev-set numbers in DECISIONS (linkedin/github 95/94 % vs 98 % target, one icon-only resume). Stage 7: layout Code + tests done; reading-order accuracy awaits Checkpoint 7A (user verifies overlays). Stage 6: OCR works, latency target missed (see below). Stage 5 notes: complete for PDF+DOCX; two exit-check
+**Stage 9 — Section segmentation.** Rules only, no classifier trained (target met; see DECISIONS). Stage 8: header & contact rules. Done; dev-set numbers in DECISIONS (linkedin/github 95/94 % vs 98 % target, one icon-only resume). Stage 7: layout Code + tests done; reading-order accuracy awaits Checkpoint 7A (user verifies overlays). Stage 6: OCR works, latency target missed (see below). Stage 5 notes: complete for PDF+DOCX; two exit-check
 fixtures (DOCX gold, FlowCV) are missing from disk and substituted with
 synthetic equivalents. Pending user commit. Gold-labelling (Stage 4, 3/31
 hand-drafted) continues separately/in parallel.
@@ -277,6 +277,34 @@ Windows-10-10.0.26200-SP0
 - **Dev-set caveat:** rules were tuned on these same 32 resumes; held-out
   numbers need the extra resumes from Checkpoint 4A.
 
+### Stage 9 — Section segmentation
+
+- `src/rx3/sections/{synonyms,headings,segment}.py`: synonym table + fuzzy
+  match, layout-supported heading detection, style propagation, inline
+  headings, plain-document mode; `segment_sections(doc)` assigns every line
+  one canonical section (`header` before the first heading).
+- Found/fixed two Stage 7 layout bugs (heading glued under a multi-cell row;
+  heading wrap-merged after a long unpunctuated line).
+- `eval/section_eval.py` + `data/gold/sections/section_gold.json` (32
+  resumes, hand-labelled, unverified): heading P/R 98.0/99.0, line accuracy
+  **96.3 %** (target 95 %, dev set). `eval/section_livecareer.py`: held-out,
+  184 LiveCareer resumes, precision 95.1 / recall 98.0 / canonical 97.0
+  (weak labels, one template family).
+- `tests/test_sections.py` (9) + layout regression test; `pytest -q` -> 54/54.
+- **Learned classifier not trained** (rules met the target) -> Checkpoint 9A
+  not triggered.
+
+### Side quest — layout-aware text for LLM labelling
+
+- `resume-data/layout_text.py` (standalone vendored copy of the rx3 reading
+  pipeline + renderer) and `resume-data/process_resumes.py` integration (layout
+  text, `--only/--category/--out-root/--limit/--dry-run`, `GROQ_MODEL`).
+  Vendored port verified identical to rx3 on 92 PDFs; `pytest -q` -> 64/64
+  (10 new in `tests/test_layout_text_vendor.py`).
+- New eval hooks: `eval.llm_agreement`, `--baseline llm-groq`, Groq column in
+  `eval.header_eval`. **Calibration not run yet** (needs Groq keys in
+  `resume-data/.env`): see DECISIONS "Side quest".
+
 ## Next (superseded list below kept for history)
 
 - Stage 6: OCR fallback (RapidOCR + optional Tesseract benchmark). Real
@@ -286,6 +314,13 @@ Windows-10-10.0.26200-SP0
   (`data/gold/drafts/*.json`, `status: "scaffold"`), then Checkpoint 4B.
 
 ## Open questions
+
+- **Section gold verification (4B):** `data/gold/sections/section_gold.json`
+  is my draft (heading text + canonical section per resume). Judgement calls
+  worth a look: "Certificates & Awards" -> certifications, "Research"
+  (LaTeX template, holds a job-like entry) -> workHistory, Simple_Hipster's
+  "Short Resumé" -> workHistory / "Curriculum" -> projects, "SKILLS & OTHER" ->
+  skills, "Awards & Certifications" -> certifications.
 
 - **Header gold verification (4B):** `data/gold/header/header_gold.json` is
   my draft; please spot-check (name/email/phone/links/city per resume) — the

@@ -1,4 +1,4 @@
-# Eval report — baseline-llm — 2026-10-04T15:47:31
+# Eval report — baseline-llm — 2026-10-04T20:04:27
 
 Gold set: 3 drafted/verified files (0 verified, 3 draft/unverified), plus 28 not yet hand-labelled (excluded from scoring).
 Candidate: 3/3 gold files had a matching candidate prediction.

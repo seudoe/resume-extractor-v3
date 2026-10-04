@@ -107,10 +107,10 @@ def run_pipeline(stems: list[str]) -> dict[str, dict]:
     return out
 
 
-def run_llm(stems: list[str]) -> dict[str, dict]:
+def run_llm(stems: list[str], root: Path | None = None) -> dict[str, dict]:
     out = {}
     for stem in stems:
-        p = json_path(GOLD_CATEGORY, stem)
+        p = (root / "JSONs" / GOLD_CATEGORY / f"{stem}.json") if root else json_path(GOLD_CATEGORY, stem)
         if p.exists():
             out[stem] = flatten(json.loads(p.read_text(encoding="utf-8")).get("metaDetails") or {})
     return out
@@ -140,6 +140,10 @@ def main() -> None:
               f"(verified_by: {gold_all['_meta']['verified_by']}). **Unverified gold: not a reported accuracy.**")
     md.append("")
     md += render(mine, "rx3 rules (ingest + layout + header)") + [""] + render(llm, "LLM JSONs (reference only)") + [""]
+    groq_root = ROOT.parent / "resume-data" / "calibration" / "groq-layout"
+    groq_preds = run_llm(stems, groq_root) if groq_root.exists() else {}
+    if groq_preds:
+        md += render(score(groq_preds, golds), f"Groq + layout text, calibration run ({len(groq_preds)} resumes)") + [""]
     md.append("### Targets (PROMPT.md §4.7), rx3 rules")
     for f, t in TARGETS.items():
         s = mine["per_field"][f]

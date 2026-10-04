@@ -6,6 +6,7 @@ import re
 from ir import BBox, Line
 
 from rx3.layout.lines import CELL_SEP, cell_starts
+from rx3.sections.synonyms import match_heading
 
 BULLET_GLYPHS = "•●○◦▪▫■□–—-*➢➤►✓✔·"
 _BULLET_RE = re.compile(rf"^\s*[{re.escape(BULLET_GLYPHS)}]\s*\S")
@@ -67,6 +68,12 @@ def _is_continuation(prev: Line, cur: Line, right_edge: float, body_height: floa
         return False
     if cur.bbox.y0 < prev.bbox.y0:  # not below
         return False
+    cur_text = cur.text.strip()
+    if len(cur_text.split()) <= 5 and cur_text.isupper() and not prev.text.strip().isupper():
+        return False  # a short ALL-CAPS line after mixed-case text is a heading
+    heading = match_heading(cur_text)
+    if heading and heading[1] >= 100.0:
+        return False  # "Additional Information" right after a full-width skills line
     prev_start = _text_x0(prev)
     if CELL_SEP in prev.text:
         # A table-like row (degree | institution | dates, label | values) is a
@@ -77,9 +84,12 @@ def _is_continuation(prev: Line, cur: Line, right_edge: float, body_height: floa
         prev_start = cell_starts(prev)[-1]
     hanging = is_bullet(prev.text) and prev.bbox.x0 < cur.bbox.x0 <= prev.bbox.x0 + 30.0
     first_line_indent = not is_bullet(prev.text) and 0 < prev.bbox.x0 - cur.bbox.x0 <= 30.0
-    aligned = abs(cur.bbox.x0 - prev_start) <= 4.0 or hanging or first_line_indent or (
-        not is_bullet(prev.text) and abs(cur.bbox.x0 - prev.bbox.x0) <= 3.0
-    )
+    if CELL_SEP in prev.text:
+        aligned = abs(cur.bbox.x0 - prev_start) <= 4.0  # only the row's last cell can wrap
+    else:
+        aligned = abs(cur.bbox.x0 - prev_start) <= 4.0 or hanging or first_line_indent or (
+            not is_bullet(prev.text) and abs(cur.bbox.x0 - prev.bbox.x0) <= 3.0
+        )
     if not aligned:
         return False
     stripped = prev.text.rstrip()

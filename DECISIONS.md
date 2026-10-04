@@ -429,3 +429,125 @@ reference the entry they replace rather than deleting it.
 - **Bugs caught while building**: a heredoc turned `\b` into a literal
   backspace in two regexes (again); a mangled docstring; `urlparse` raising
   on malformed targets (guarded in both the extractor and the eval).
+
+## Stage 9 — Section segmentation
+
+- **Rules only; the learned heading classifier was NOT trained, and Checkpoint
+  9A was therefore not needed.** PROMPT.md says models only where rules
+  measurably fail. The rules meet the §4.7 target on the gold set and hold up
+  on an independent held-out check (below); the failures that remain are
+  template-specific naming ("Short Resumé", "Curriculum"), which a classifier
+  trained on LiveCareer (one plain template family) would not fix. Revisit if
+  the extra resumes from Checkpoint 4A show heading misses the rules can't
+  explain. If it's ever built: train with scikit-learn (`train` extra), export
+  coef/intercept as JSON and run inference in numpy so the runtime image stays
+  free of sklearn.
+- **Pipeline** (`src/rx3/sections/`): `synonyms.py` (table + rapidfuzz match +
+  keyword fallback), `headings.py` (`detect_headings`), `segment.py`
+  (`segment_sections` -> `Section(name, heading, line_ids, inline)`,
+  `line_sections`). Every line gets exactly one canonical section; the block
+  before the first heading is `header`; unknown headings become `other`, never
+  glued onto the previous section.
+- **Heading rules**: a short non-bullet line whose text reads as a known
+  heading. Exact normalised match scores 100; fuzzy near-matches are capped at
+  99 and must match the resume's own heading style (a near-match in another
+  style is an entry subtitle: "Personal Project" under a project title). Layout
+  support = bold / caps / larger / coloured / rule below, or <= 2 words.
+  **Style propagation** finds unknown headings: a short line with a style
+  signature that occurs >= 2 times among the known headings (sidebar tags and
+  main-column headings are separate styles) plus a strong cue (caps / rule /
+  bigger / coloured); an unstyled signature never counts as a "style". A
+  keyword fallback ("University Project" -> projects, last keyword wins)
+  classifies those style-found headings.
+- **Inline headings** ("Languages<tab>English, Hindi", "Hobbies: ...") are
+  one-line sections and the previous section carries on. They open a section
+  only if the label is styled (first span bold / caps), written `Label:`, or the
+  current block is a catch-all (header, or a *synonym* `other` such as
+  ADDITIONAL). Otherwise they're sub-rows ("Soft Skills", AltaCV's plain
+  "Leadership<tab>Problem Solving" tags). A programming-languages row inside
+  Skills ("Languages: C, C++, Java") stays in Skills. A "SKILLS" heading
+  immediately followed by "Hard Skills:" is one section.
+- **Plain documents** (every LiveCareer PDF: headings have no styling at all):
+  detected when none of the exact-match headings carries a cue. Then an exact
+  synonym alone on a line is a heading at any length ("Education and
+  Training"), title-case 2-5 word lines with a *strict* keyword (skills,
+  education, awards...) are headings, but: colon-terminated lines ("Accomplishments:"
+  is a sub-label inside a job) and ambiguous one-word synonyms (Leadership,
+  Research, Volunteer, Activities, Training, ...) are not, since they are skill
+  tags there.
+- **Region reset**: a new column starting without its own heading doesn't
+  inherit the previous column's last section (not applied to the header block
+  or a headless `other`).
+- **Two layout bugs found through this stage** (both fixed in Stage 7 code):
+  a heading under a multi-cell row ("... | Score: 90.0%" then "PROJECTS") was
+  glued onto it because the row-alignment alternative still matched the row's
+  left edge; and a heading right after a long unpunctuated line ("Additional
+  Information" after a comma-separated skills line) was wrap-merged into it
+  (an exact heading match is now never a continuation; a short ALL-CAPS line
+  after mixed case isn't either). Regression tests added.
+- **Synonym table** is built from headings in the gold resumes + a 24-resume
+  LiveCareer sample + general resume vocabulary. Dropped over-generic entries
+  ("tools", "work", "details", "links" ...) and the template-specific "short
+  resume", "overview", "specialization". Words added after seeing LiveCareer
+  misses are general ("skill highlights", "activities and honors",
+  "core accomplishments"); "strengths", "relevant coursework" and "most proud
+  of" were added after seeing the gold set, so they are tuned.
+- **Measured** (reports/section_eval_2026-10-04.md): gold set (32 resumes, my
+  hand-labelled headings in layout order, **unverified; rules tuned on it ->
+  development set**): heading P/R 98.0 / 99.0 %, canonical section on matched
+  headings 98.5 %, **line-level section assignment 96.3 % (1450/1506) vs the
+  95 % target**. Worst files: Simple_Hipster_CV 55 %, Entry_Level LaTeX 88 %
+  (template-specific headings; "Research" as workHistory vs our publications
+  mapping). **Held-out** (reports/section_livecareer_2026-10-04.md, 184
+  LiveCareer resumes, HTML `sectiontitle` weak labels, not used for tuning
+  except the vocabulary above): heading precision 95.1 %, recall 98.0 %,
+  canonical 97.0 %. First held-out run was recall 78.6 %: plain-document
+  handling and the merged-heading bug accounted for the difference.
+- **Caveats**: LiveCareer is one template family with noisy titles (some
+  "false positives" are real headings the HTML didn't mark, e.g. a repeated
+  "Accomplishments"), so it says little about Canva/two-column layouts; the
+  gold-set number is optimistic. `PROFILES` (a links block) is read as
+  `summary` by the fuzzy singular/plural match.
+
+## Side quest (between Stage 9 and 10) — layout-aware text for the LLM-labelled benchmark
+
+- **Why now**: ~2,480 PDFs still need LLM JSON; Gemini reads the PDF but has few
+  calls/day, Groq has many but takes text only, and plain `pypdf` text drops
+  position/size/columns. The LLM JSONs are benchmarks/training data, so the
+  text sent to Groq should carry layout. Done before Stage 10 because Stages
+  10-12 consume the reading pipeline; they don't change how a PDF is read
+  (any later edge-case fixes get a new `FORMAT_VERSION`, stored per JSON).
+- **`resume-data/layout_text.py`** (user chose a **standalone** copy over
+  importing from this repo, so `process_resumes.py` keeps its own env):
+  vendored port of rx3 ingest + Tesseract OCR fallback (CLI, no pytesseract) +
+  cells + XY-cut columns + wrapped bullets + features, needing only `pymupdf`
+  (`ftfy` optional). Renders `L12 | x1.8 B CAPS RULE | text ⇥ cell` lines in
+  reading order with `[region N]` markers, plus a LINKS list (link target + the
+  words it covers + host line id). It adds **facts, not interpretations**: no
+  section labels, no header guesses, so the benchmark isn't pre-shaped by our
+  own extractor's opinions. A legend teaches the LLM the notation; "B" is
+  dropped when >85 % of lines are bold (some fonts flag every span).
+- **Drift guard**: `tests/test_layout_text_vendor.py` compares the vendored
+  pipeline to rx3 line-for-line and feature-for-feature on 8 AAA resumes, checks
+  the generated heading-phrase set equals `rx3.sections.synonyms`, and checks
+  the renderer carries cells/links/headings. A one-off check over 92 PDFs (AAA +
+  60 random LiveCareer) found 0 differences. The file lives outside this git
+  repo (`resume-data/`), so it isn't versioned here.
+- **`process_resumes.py` changes** (backup kept only in the session scratchpad):
+  layout text replaces `pypdf` text (pypdf only as a fallback; `text_format` +
+  `text_chars` go into `Extraction-details`); Groq model from `GROQ_MODEL`
+  (default unchanged) with a token-budget warning; new flags `--only`,
+  `--category`, `--out-root`, `--limit`, `--dry-run`. `--out-root` keeps a
+  calibration run from touching the existing JSONs.
+- **Size**: schema prompt ~0.8k tokens; layout text on AAA mean ~1.5k / max
+  ~2.7k tokens, on a LiveCareer sample mean ~2.2k / max ~4.5k (x1.3-1.7 the
+  chars of pypdf text). With a ~2.5k-token reply, the default 8k-window Groq
+  model will fail on the longest few percent; a larger-context model is advised.
+- **Known weak spot**: sidebar-heavy templates (e.g. Simple_Hipster) still read
+  imperfectly (a heading in one region, its content in the next); Gemini on the
+  real PDF handles those better, so stratify by `llm_used`/`input_type`.
+- **Calibration plan (not run: needs the user's Groq keys)**:
+  `process_resumes.py --only GROQ --category AAA --out-root calibration/groq-layout`,
+  then `eval.llm_agreement` (Groq-layout vs Gemini-PDF agreement),
+  `eval.header_eval` (new Groq column vs hand header gold) and
+  `eval.run_eval --baseline llm-groq`. Only then the bulk run.

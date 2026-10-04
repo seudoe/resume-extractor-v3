@@ -107,3 +107,14 @@ def test_first_line_indented_paragraph_merges():
     first = mk("BMS graduate specializing in finance with a strong foundation in analysis and", 60, 100, 540)
     second = mk("strategic thinking. Adept at conducting research and preparing reports.", 40, 112, 540)
     assert len(run([first, second])) == 1
+
+
+def test_heading_below_a_multi_cell_row_is_not_glued_to_it():
+    # Aagam's resume: "PROJECTS" sat right under "National English High School | Score: 90.0%"
+    rows = [
+        mk("National English High School (SSC)", 50, 185, 223),
+        mk("Score: 90.0%", 482, 183, 548),
+        mk("PROJECTS", 50, 206, 103, size=11, bold=True),
+    ]
+    out = texts(run(rows))
+    assert out == ["National English High School (SSC)\tScore: 90.0%", "PROJECTS"]

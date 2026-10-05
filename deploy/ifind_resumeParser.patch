@@ -1,0 +1,27 @@
+--- a/lib/resumeParser.ts
++++ b/lib/resumeParser.ts
+@@ -10,7 +10,11 @@
+ 
+ import type { ParsedResumeData } from "@/types/resume";
+ 
+-const HF_SPACE_URL = "https://seudoe-resume-extract.hf.space";
++// Base URL of the resume-extractor-v3 service (resume-extractor-v3/src/rx3/api.py). Deploy the Space first, then set
++// RESUME_EXTRACTOR_URL; the default below is the planned v3 Space (the old v2 Space was https://seudoe-resume-extract.hf.space).
++const HF_SPACE_URL = (
++    process.env.RESUME_EXTRACTOR_URL ?? "https://seudoe-resume-extractor-v3.hf.space"
++).replace(/\/+$/, "");
+ 
+ // Time (in ms) to wait for HuggingFace Space before moving to OpenAI fallback
+ const MAX_WAIT_FOR_HF_MS = process.env.MAX_WAIT_FOR_HF
+@@ -83,6 +87,11 @@
+ 
+ function normaliseHFOutput(raw: any): any {
+     if (!raw) return raw;
++    // v3 already returns a complete metaDetails (address included); the legacy `_meta` is only for the v2 Space.
++    if (raw.metaDetails) {
++        const { _meta, _debug, _confidence, ...rest } = raw;
++        return rest;
++    }
+     const meta = raw._meta ?? {};
+     const metaDetails = {
+         name: meta.name ?? "",

@@ -504,6 +504,21 @@ Windows-10-10.0.26200-SP0
   tests the live Space, curl below) wait for the owner's go-ahead; LibreOffice (`.doc`) is not in the image.
   Live test once deployed: `curl -X POST "$SPACE_URL/extract" -F "file=@resume.pdf"` and `curl "$SPACE_URL/health"`.
 
+### Stage 15 — ifind integration (owner declined edits; delivered as a patch)
+
+- Checkpoint 15A answered **no**: nothing in `ifind/` was changed. `deploy/ifind_resumeParser.patch` contains the two small changes
+  (`RESUME_EXTRACTOR_URL` env var with the v3 Space as default; `normaliseHFOutput` passes through responses that already have
+  `metaDetails`); `git apply --check` against the current file succeeds. Apply: `cd ifind && git apply ../resume-extractor-v3/deploy/ifind_resumeParser.patch`.
+- Reported only: `parseWithOpenAI` sends the PDF as `image_url` with `data:application/pdf`, which the chat API does not accept, so the path very likely
+  always fails; proposal = make v3 the only path once the gold is verified and the targets are met. Details in `reports/FINAL.md` section 6.
+- Checkpoint 15B (owner tests upload + re-extract in the running ifind app) is pending until the Space is deployed and the patch applied.
+
+### Stage 16 — Final report
+
+- `reports/FINAL.md`: v2 / AI path / LLM JSON / v3 (rules, zero-shot, LoRA) on every metric, per-section strengths and weaknesses, the 10 worst failures
+  with causes, latency / memory / footprint (local; the real Space is not deployed), next steps, and the Stage 15 report. README now covers running
+  locally, running the eval, adding a gold resume, retraining and deploying. **Checkpoint 16A (final review) is waiting for the owner.**
+
 ## Next (superseded list below kept for history)
 
 - Stage 6: OCR fallback (RapidOCR + optional Tesseract benchmark). Real

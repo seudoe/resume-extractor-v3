@@ -783,3 +783,11 @@ reference the entry they replace rather than deleting it.
   checksum (`models/MODEL_CHECKSUMS.txt`). Runtime is offline (`HF_HUB_OFFLINE=1`). Non-root uid 1000 (what Spaces expect).
 - **Unverified**: no Docker here, so build success, image size, container cold start and the `--cpus=2 --memory=16g` run are untested;
   the lock-file and local-uvicorn paths are tested. First thing to do once Docker or the Space build is available.
+
+## Stage 15-16 — ifind integration and handover
+
+- **15A**: the owner said no to editing `ifind/`, so the integration is `deploy/ifind_resumeParser.patch` (dry-run applied cleanly) and a
+  written report. The patch default URL is the planned v3 Space; until it exists set `RESUME_EXTRACTOR_URL` (or keep the old URL). `ifind/` is untouched.
+- **Final report honesty**: the hosted-LLM JSONs beat v3 on entity F1 for work / education / projects on this gold (0.15-0.25). That is stated
+  plainly in `reports/FINAL.md`; v3's case is contacts, grounding (0.15 % invented strings), validity, determinism, 2-CPU latency and zero runtime cost.
+  All numbers sit on unverified, partly tuned gold; the Space, image size and container timings are still unmeasured.

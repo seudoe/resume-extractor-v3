@@ -45,8 +45,23 @@ password-protected / too many pages, 504 timeout.
 
 ## Running the eval
 
-Not yet available — harness is built in Stage 4.
-Command once available: `python -m eval.run_eval --set gold --compare last`
+    python -m eval.run_eval --baseline v3                     # entity F1 / scalar fields / skills / hallucination on the gold (rules only)
+    RX3_ENABLE_GLINER=1 python -m eval.run_eval --baseline v3 # with the shipped LoRA adapter; --baseline v2 | llm | ai for the references
+    python -m eval.header_eval ; python -m eval.section_eval  # header fields, section assignment
+    python -m eval.fields_eval --extractor rules+norm --n 100 # field-level proxies on LiveCareer labels + agreement with the LLM JSONs
+    python -m eval.pipeline_eval --gliner --n 200             # schema validity, independent hallucination, determinism, per-stage latency
+    python -m eval.api_perf                                   # cold start + request latency of the real HTTP service
+
+Reports land in `reports/` (`reports/FINAL.md` is the stage-16 summary). `pytest -q` runs the unit tests.
+
+## Adding a gold resume
+
+1. Put the PDF in `../resume-data/PDFs/AAA/` and run `python tools/draft_gold.py` (writes `data/gold/raw/<id>.txt` and a scaffold in `data/gold/drafts/`).
+2. Read the raw text and fill the scaffold by hand (no LLM output): write a small script with the helpers in `tools/gold_fill.py` (`W`, `E`, `P`, `C`, `A`, `SK`,
+   `AFF`, `save`), e.g. `save("<id>", edu=[E("IIT Bombay", "Bachelor of Technology", "CSE", "2020-08-01", cur=True, out="CGPA: 9.1")], ...)`.
+   The file becomes `status: "drafted"`; only the owner sets `verified_by` / `verified_at` after checking it against the PDF.
+3. Add the header values to `data/gold/header/header_gold.json` and the headings to `data/gold/sections/section_gold.json` (see the existing entries).
+4. Re-run `python -m eval.run_eval --baseline v3`. Gold is never used for training.
 
 ## Deploying
 

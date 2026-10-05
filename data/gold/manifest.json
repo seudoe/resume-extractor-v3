@@ -1,7 +1,7 @@
 [
   {
-    "id": "2_entry_level_software_engineer_resume_pdf",
-    "source_file": "2. Entry Level Software Engineer Resume.pdf",
+    "id": "26_9_30_csihead_pdf",
+    "source_file": "26-9-30-csiHead.pdf",
     "format": "pdf",
     "near_duplicate_of": null,
     "drafted": true,
@@ -72,24 +72,16 @@
     "verified": false
   },
   {
-    "id": "demogoal_docx",
-    "source_file": "DemoGOAL.docx",
-    "format": "docx",
-    "near_duplicate_of": "demogoal_pdf",
-    "drafted": true,
-    "verified": false
-  },
-  {
-    "id": "demogoal_pdf",
-    "source_file": "DemoGOAL.pdf",
+    "id": "director_of_business_development2_template_15_pdf",
+    "source_file": "director-of-business-development2  - Template 15.pdf",
     "format": "pdf",
     "near_duplicate_of": null,
     "drafted": true,
     "verified": false
   },
   {
-    "id": "director_of_business_development2_template_15_pdf",
-    "source_file": "director-of-business-development2  - Template 15.pdf",
+    "id": "entry_level_software_engineer_resume_pdf",
+    "source_file": "Entry Level Software Engineer Resume.pdf",
     "format": "pdf",
     "near_duplicate_of": null,
     "drafted": true,
@@ -128,14 +120,6 @@
     "verified": false
   },
   {
-    "id": "flowcv_resume_2026_08_02_pdf",
-    "source_file": "FlowCV_Resume_2026-08-02.pdf",
-    "format": "pdf",
-    "near_duplicate_of": null,
-    "drafted": true,
-    "verified": false
-  },
-  {
     "id": "jenil_shah_resume_12_pdf",
     "source_file": "Jenil_Shah_Resume (12).pdf",
     "format": "pdf",
@@ -152,32 +136,64 @@
     "verified": false
   },
   {
-    "id": "resume_asif_4_0_compressed_pdf",
-    "source_file": "Resume_Asif_4.0_compressed.pdf",
+    "id": "mohd_asifshershahvadi_internshalaresume_pdf",
+    "source_file": "Mohd AsifShershahvadi_InternshalaResume.pdf",
     "format": "pdf",
     "near_duplicate_of": null,
     "drafted": true,
     "verified": false
   },
   {
-    "id": "resume_asif_goal_compressed_pdf",
-    "source_file": "Resume_Asif_GOAL-compressed.pdf",
+    "id": "resume_block_pdf",
+    "source_file": "resume-block.pdf",
     "format": "pdf",
-    "near_duplicate_of": "resume_asif_4_0_compressed_pdf",
+    "near_duplicate_of": null,
     "drafted": true,
     "verified": false
   },
   {
-    "id": "resume_asif_goal_docx",
-    "source_file": "Resume_Asif_GOAL.docx",
-    "format": "docx",
-    "near_duplicate_of": "resume_asif_4_0_compressed_pdf",
+    "id": "resume_asif_pdf",
+    "source_file": "Resume_Asif.pdf",
+    "format": "pdf",
+    "near_duplicate_of": null,
+    "drafted": true,
+    "verified": false
+  },
+  {
+    "id": "resume_asif_4_0_pdf",
+    "source_file": "Resume_Asif_4.0.pdf",
+    "format": "pdf",
+    "near_duplicate_of": null,
+    "drafted": true,
+    "verified": false
+  },
+  {
+    "id": "resume_asif_goal_2_pdf",
+    "source_file": "Resume_Asif_GOAL-2.pdf",
+    "format": "pdf",
+    "near_duplicate_of": null,
+    "drafted": true,
+    "verified": false
+  },
+  {
+    "id": "resume_asif_goal_intgoog_mar26_pdf",
+    "source_file": "Resume_Asif_GOAL-intGoog-mar26.pdf",
+    "format": "pdf",
+    "near_duplicate_of": null,
     "drafted": true,
     "verified": false
   },
   {
     "id": "sambhavmirajgaonkarresume_pdf",
     "source_file": "SambhavMirajgaonkarResume.pdf",
+    "format": "pdf",
+    "near_duplicate_of": null,
+    "drafted": true,
+    "verified": false
+  },
+  {
+    "id": "sh_resu_pdf",
+    "source_file": "sh_resu.pdf",
     "format": "pdf",
     "near_duplicate_of": null,
     "drafted": true,
@@ -216,8 +232,8 @@
     "verified": false
   },
   {
-    "id": "vickyresume_1_pdf",
-    "source_file": "VickyResume (1).pdf",
+    "id": "vedant_resume_2_pdf",
+    "source_file": "Vedant_Resume (2).pdf",
     "format": "pdf",
     "near_duplicate_of": null,
     "drafted": true,
@@ -234,14 +250,6 @@
   {
     "id": "vickyresume_apr26_pdf",
     "source_file": "VickyResume-apr26.pdf",
-    "format": "pdf",
-    "near_duplicate_of": "vickyresume_1_pdf",
-    "drafted": true,
-    "verified": false
-  },
-  {
-    "id": "vickyresume_pdf",
-    "source_file": "VickyResume.pdf",
     "format": "pdf",
     "near_duplicate_of": "vickyresume_1_pdf",
     "drafted": true,

@@ -6,7 +6,7 @@ from ir import Line
 
 from rx3.fields.rules.dates import Found, find_range, strip_range
 from rx3.fields.rules.lex import is_company as _is_company, is_title as _is_title
-from rx3.fields.rules.entries import CELL, Entry, cells, per_line_entries, split_entries, strip_glyph
+from rx3.fields.rules.entries import CELL, Entry, bulletish, cells, per_line_entries, split_entries, strip_glyph
 
 _DEGREE = re.compile(
     r"\b(bachelor|master|doctor|associate|diploma|certificate|b\.?\s?tech|m\.?\s?tech|b\.?\s?e|m\.?\s?e|b\.?\s?sc|m\.?\s?sc|"
@@ -146,6 +146,15 @@ def _split_degrees(lines: list[Line]) -> list[Line]:
     return out
 
 
+def _proj_opens(cur: Entry, l: Line) -> bool:
+    """Plain-style projects: a short capitalised non-bullet line right after a finished bullet is the next project's title."""
+    t = l.text.strip()
+    if not cur.body or bulletish(l) or len(t) > 70 or not t[:1].isupper() or t[-1:] in ".,;:":
+        return False
+    prev = cur.body[-1].text.strip()
+    return prev[-1:] in ".!?)"
+
+
 def _edu_head(l: Line) -> tuple[bool, bool]:
     return bool(_DEGREE.search(l.text)), bool(_INSTITUTION.search(l.text))
 
@@ -265,7 +274,7 @@ def build_section(name: str, lines: list[Line], refiner=None) -> list[dict] | st
         return interests(lines)
     if name in ENTRY_BUILDERS:
         edu = name == "education"
-        entries = split_entries(_split_degrees(lines) if edu else lines, _edu_opens if edu else None)
+        entries = split_entries(_split_degrees(lines) if edu else lines, _edu_opens if edu else _proj_opens if name == "projects" else None)
         if name in PER_LINE and len(entries) <= 1 and len(lines) > 2:
             entries = per_line_entries(lines)
         built = [(x, ENTRY_BUILDERS[name](x)) for x in entries]

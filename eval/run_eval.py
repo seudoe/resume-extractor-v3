@@ -50,6 +50,8 @@ def load_gold(include_scaffolds: bool = False) -> list[dict]:
     gold = []
     for path in sorted((GOLD_DIR / "drafts").glob("*.json")):
         entry = json.loads(path.read_text(encoding="utf-8"))
+        if entry.get("status") == "archived":
+            continue  # source PDF gone from resume-data; kept on disk for reference only
         if entry.get("status") == "scaffold" and not include_scaffolds:
             continue
         gold.append(entry)

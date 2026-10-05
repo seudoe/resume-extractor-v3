@@ -14,12 +14,15 @@ and merges with the rules output per field according to `strategy`:
 import hashlib
 import json
 import os
+import re
 import time
 import warnings
 from pathlib import Path
 
 CACHE_PATH = Path(__file__).resolve().parents[4] / "data" / "cache" / "gliner_cache.json"
 MODEL_ID = "fastino/gliner2.5-base-v1"
+DEFAULT_ADAPTER = Path(__file__).resolve().parents[4] / "models" / "adapters" / "rx3-entry-lora"
+MAX_BLOCK_CHARS = 600
 THRESHOLD = 0.3  # low on purpose: the merge step applies the real per-field cut-off using the returned confidence
 
 SCHEMAS = {
@@ -50,14 +53,36 @@ COMBINE: dict[str, float | None] = {
 }
 
 
+_JUNK = re.compile(r"\bCompany Name\b|\bCity\s*,\s*State\b|ï1⁄4|ï¼|[\u200b\ufeff]")
+
+
+_BARE_CITY = re.compile(r"(?:^|(?<=\| ))City\b(?=\s*(?:,\s*State\b)?\s*(?:\||$))")  # a lone placeholder cell, not "Kansas City"
+
+
+def clean_line(t: str) -> str:
+    """LiveCareer anonymisation leftovers (placeholder names, a mojibake dash) are not text a real resume has."""
+    t = re.sub(r"\s{2,}", " ", _JUNK.sub(" ", t.replace("\t", " | "))).strip(" |")
+    return re.sub(r"\s{2,}", " ", _BARE_CITY.sub("", t)).strip(" |")
+
+
+# With the fine-tuned adapter (tools/train_gliner_lora.py) one cut-off of 0.7 was best on LiveCareer + AAA (eval/combine_search style run,
+# 2026-10-05): vs rules, company 57.6 -> 86.3, AAA title 78.0 -> 89.0, location 8.3 -> 90.3, LiveCareer school 53.9 -> 90.0, degree
+# 83.6 -> 94.1; costs 3 points of LiveCareer title recall (83.5 -> 80.5), a proxy label set. 0.5 gains more recall, 0.9 gives it back.
+COMBINE_LORA: dict[str, float | None] = {k: 0.7 for k in COMBINE}
+
+
 def block_text(entry) -> tuple[str, list[tuple[int, str]]]:
     """Head lines as one text (cells joined with ' | ') and the (start offset, line id) of every line."""
     parts, starts, pos = [], [], 0
     for l in entry.head:
-        t = l.text.replace("\t", " | ")
+        t = clean_line(l.text)
+        if not t or pos >= MAX_BLOCK_CHARS:  # an entry head is a few short lines; a runaway block would blow GPU memory in training
+            continue
         starts.append((pos, l.id))
         parts.append(t)
         pos += len(t) + 1
+    if not parts:
+        return "", [(0, entry.head[0].id)]
     return "\n".join(parts), starts
 
 
@@ -81,13 +106,17 @@ def _get(d: dict, path: str) -> str:
 
 class GlinerRefiner:
     def __init__(self, strategy: str = "hybrid", min_conf: dict[str, float] | None = None, use_cache: bool = True,
-                 default_conf: float = 0.5):
+                 default_conf: float = 0.5, adapter: str | None = None, tag: str | None = None):
+        """`adapter`: path of a LoRA adapter (tools/train_gliner_lora.py) to load on top of the base model; `tag` names its
+        own output cache so zero-shot and fine-tuned predictions never mix."""
+        self.adapter = adapter
+        self.cache_path = CACHE_PATH if not tag else CACHE_PATH.with_name(f"gliner_cache_{tag}.json")
         self.strategy = strategy
         self.min_conf = min_conf or {}
         self.default_conf = default_conf
         self.model = None
         self.use_cache = use_cache
-        self.cache: dict = json.loads(CACHE_PATH.read_text(encoding="utf-8")) if use_cache and CACHE_PATH.exists() else {}
+        self.cache: dict = json.loads(self.cache_path.read_text(encoding="utf-8")) if use_cache and self.cache_path.exists() else {}
         self._dirty = False
 
     def _load(self):
@@ -98,21 +127,37 @@ class GlinerRefiner:
             import torch
 
             torch.set_num_threads(int(os.environ.get("RX3_TORCH_THREADS", "2")))
-            self.model = AutoExtractor.from_pretrained(MODEL_ID)
+            device = os.environ.get("RX3_GLINER_DEVICE")  # e.g. "cuda" for evals on a GPU box; production stays on CPU
+            self.model = AutoExtractor.from_pretrained(MODEL_ID, map_location=device) if device else AutoExtractor.from_pretrained(MODEL_ID)
+            if self.adapter:  # merged into the base weights: an unmerged PEFT adapter made CPU inference ~3x slower
+                from peft import PeftModel
+
+                self.model = PeftModel.from_pretrained(self.model, self.adapter).merge_and_unload()
+                self.model.eval()
         return self.model
 
     def save_cache(self) -> None:
         if self.use_cache and self._dirty:
-            CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-            CACHE_PATH.write_text(json.dumps(self.cache, ensure_ascii=False), encoding="utf-8")
+            self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+            self.cache_path.write_text(json.dumps(self.cache, ensure_ascii=False), encoding="utf-8")
             self._dirty = False
 
     def predict(self, section: str, texts: list[str]) -> list[dict]:
         keys = [hashlib.sha1(f"{section}\n{t}".encode()).hexdigest() for t in texts]
         todo = [(k, t) for k, t in dict(zip(keys, texts)).items() if k not in self.cache]
         if todo:
-            res = self._load().batch_extract_json([t for _, t in todo], SCHEMAS[section], batch_size=8, threshold=THRESHOLD,
-                                                  include_confidence=True, include_spans=True)
+            model = self._load()
+            texts_todo = [t for _, t in todo]
+            kw = dict(threshold=THRESHOLD, include_confidence=True, include_spans=True)
+            try:
+                res = model.batch_extract_json(texts_todo, SCHEMAS[section], batch_size=8, **kw)
+            except Exception:  # noqa: BLE001  (some inputs give NaN scores on CPU: "cost_matrix contains NaN")
+                res = []
+                for t in texts_todo:  # retry one by one; a block that still fails is left to the rules (empty result)
+                    try:
+                        res.append(model.extract_json(t, SCHEMAS[section], **kw))
+                    except Exception:  # noqa: BLE001
+                        res.append({})
             for (k, _), r in zip(todo, res):
                 self.cache[k] = r
                 self._dirty = True
@@ -147,7 +192,7 @@ class GlinerRefiner:
             for path, (t, c, _) in found.items():
                 fkey = f"{section}.{path}"
                 if self.strategy == "combined":
-                    cut = COMBINE.get(fkey)
+                    cut = (COMBINE_LORA if self.adapter else COMBINE).get(fkey)
                     use = cut is not None and c >= cut
                 else:
                     use = self.strategy == "gliner" or (self.strategy == "hybrid" and c >= self.min_conf.get(fkey, self.default_conf))
@@ -164,5 +209,7 @@ def shared_refiner() -> GlinerRefiner:
     """Process-wide refiner (model loaded once) for the pipeline: `combined` strategy, no disk cache."""
     global _SHARED
     if _SHARED is None:
-        _SHARED = GlinerRefiner("combined", use_cache=False)
+        env = os.environ.get("RX3_GLINER_ADAPTER", "")  # a LoRA adapter dir; "none" = zero-shot; default = the shipped adapter
+        adapter = None if env.lower() == "none" else env or (str(DEFAULT_ADAPTER) if DEFAULT_ADAPTER.exists() else None)
+        _SHARED = GlinerRefiner("combined", use_cache=False, adapter=adapter)
     return _SHARED

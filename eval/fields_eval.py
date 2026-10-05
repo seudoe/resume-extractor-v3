@@ -61,7 +61,12 @@ _REFINERS: dict = {}
 
 def refiner_for(strategy: str):
     if strategy not in _REFINERS:
-        if strategy.startswith("slm"):
+        if strategy.startswith("lora"):  # lora[@cut-off]: fine-tuned adapter, override at confidence >= cut-off (default 0.5)
+            from rx3.fields.gliner import GlinerRefiner
+
+            cut = float(strategy.split("@")[1]) if "@" in strategy else 0.5
+            _REFINERS[strategy] = GlinerRefiner("hybrid", default_conf=cut, adapter=str(ROOT / "models" / "gliner-lora" / "best"), tag="lora")
+        elif strategy.startswith("slm"):
             from rx3.fields.slm import SlmRefiner
 
             _REFINERS[strategy] = SlmRefiner(strategy)
@@ -75,7 +80,7 @@ def refiner_for(strategy: str):
 def run_extractor(name: str, pdf: Path) -> dict:
     """name = <rules|gliner|hybrid>[+norm]: rules entries, optionally GLiNER-refined, optionally Stage 11 normalised."""
     base, _, norm = name.partition("+")
-    if base not in ("rules", "gliner", "hybrid", "combined", "slm06", "slm17"):
+    if base not in ("rules", "gliner", "hybrid", "combined", "slm06", "slm17") and not base.startswith("lora"):
         raise SystemExit(f"unknown extractor {name!r}")
     doc = analyze_layout(ingest_pdf(pdf.read_bytes()))
     raw = extract_rules(doc, pdf.name, refiner=None if base == "rules" else refiner_for(base))

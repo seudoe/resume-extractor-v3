@@ -66,3 +66,19 @@ def test_slm_pointer_answers_must_be_grounded_in_the_pointed_line():
     base = extract_rules(d)["workHistory"][0]
     out = extract_rules(d, refiner=FakeSlm(bad))["workHistory"][0]
     assert out["company"] == base["company"] and out["title"] == base["title"]  # invented text / out-of-range pointer: dropped
+
+
+def test_gliner_nan_blocks_fall_back_to_rules_instead_of_crashing():
+    class FlakyModel:
+        def batch_extract_json(self, texts, schema, **kw):
+            raise ValueError("cost_matrix contains NaN")  # what GLiNER2 raises on a bad block on CPU
+
+        def extract_json(self, text, schema, **kw):
+            if "Globex" in text:
+                raise ValueError("cost_matrix contains NaN")
+            return {"work": [{"company": {"text": "Acme", "confidence": 0.99, "start": 0, "end": 4}}]}
+
+    r = GlinerRefiner(strategy="combined", use_cache=False)
+    r.model = FlakyModel()
+    out = r.predict("workHistory", ["Acme | Engineer", "Globex | Analyst"])
+    assert out[0]["work"][0]["company"]["text"] == "Acme" and out[1] == {}  # the bad block is simply left to the rules

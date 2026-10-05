@@ -19,8 +19,15 @@ _GLYPH = re.compile(r"^[\s•◦▪●■□◆▶►○·*\-–—>]+")
 _NOISE = re.compile(r"^[\W_]*$")  # "[]" / "[§]" / lone icon glyphs: nothing readable
 
 
+_OBULLET = re.compile(r"^\s*o\s+(?=[A-Z0-9(])")  # Word's nested bullet is a Courier "o"; the layout stage does not tag it
+
+
+def bulletish(l: Line) -> bool:
+    return bool(l.features and l.features.is_bullet) or bool(_OBULLET.match(l.text))
+
+
 def strip_glyph(text: str) -> str:
-    return _GLYPH.sub("", text).strip()
+    return _GLYPH.sub("", _OBULLET.sub("", text)).strip()
 
 
 def cells(text: str) -> list[str]:
@@ -73,7 +80,7 @@ def _has_range(l: Line) -> bool:
 def _short_plain(l: Line) -> bool:
     t = l.text.strip()
     f = l.features
-    return len(t) <= 90 and not t.endswith(".") and not (f and f.is_bullet and not f.bold)
+    return len(t) <= 90 and not t.endswith(".") and not (bulletish(l) and not (f and f.bold))
 
 
 def split_entries(lines: list[Line], extra_open=None) -> list[Entry]:
@@ -84,7 +91,7 @@ def split_entries(lines: list[Line], extra_open=None) -> list[Entry]:
     sig = None
     for l in lines:
         f = l.features
-        bullet = bool(f and f.is_bullet)
+        bullet = bulletish(l)
         styled_head = _is_styled(l) and (not bullet or f.bold) and len(l.text) <= 160
         dated = _has_date(l) and not (bullet and not (f and f.bold))
         opens = (dated or (styled_head and (sig is None or _style(l) == sig))) and (

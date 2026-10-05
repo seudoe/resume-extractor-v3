@@ -22,3 +22,25 @@ reports/*.json
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+
+# big binaries wherever they land (models, checkpoints, adapters, exports)
+*.gguf
+*.safetensors
+*.pt
+*.pth
+*.bin
+*.onnx
+*.ckpt
+*.npz
+*.parquet
+data/train/
+data/synthetic/*
+!data/synthetic/.gitkeep
+data/cache/
+models/gliner-lora/
+runs/
+
+# the small LoRA adapter is versioned (see models/MANIFEST.md); everything else under models/ stays ignored
+!models/adapters/
+!models/adapters/**
+!models/adapters/**/*.safetensors

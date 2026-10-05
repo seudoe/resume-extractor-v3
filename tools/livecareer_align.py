@@ -135,21 +135,26 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=300)
     ap.add_argument("--category")
+    ap.add_argument("--out", help="output jsonl (default data/livecareer/aligned.jsonl, the eval pool)")
+    ap.add_argument("--exclude-from", help="jsonl whose resume ids are never sampled (keeps train and eval pools disjoint)")
+    ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
+    out_path = Path(args.out) if args.out else OUT_PATH
+    skip = {json.loads(l)["id"] for l in Path(args.exclude_from).read_text(encoding="utf-8").splitlines()} if args.exclude_from else set()
 
     csv.field_size_limit(10**9)
     by_cat: dict[str, list[dict]] = defaultdict(list)
     with open(CSV_PATH, encoding="utf-8", newline="") as f:
         for row in csv.DictReader(f):
-            if not args.category or row["Category"] == args.category:
+            if (not args.category or row["Category"] == args.category) and row["ID"] not in skip:
                 by_cat[row["Category"]].append(row)
-    rng = random.Random(0)
+    rng = random.Random(args.seed)
     per_cat = max(1, args.n // len(by_cat))
     sample = [r for _, rows in sorted(by_cat.items()) for r in rng.sample(rows, min(per_cat, len(rows)))]
 
-    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     seen, ok, n_resumes = Counter(), Counter(), 0
-    with open(OUT_PATH, "w", encoding="utf-8") as out:
+    with open(out_path, "w", encoding="utf-8") as out:
         for row in sample:
             pdf = RESUME_DATA_ROOT / "PDFs" / row["Category"] / f"{row['ID']}.pdf"
             entries = parse_entries(row["Resume_html"])
@@ -167,7 +172,7 @@ def main() -> None:
                     ok[(e["section"], "bullet")] += b["line_id"] is not None
             out.write(json.dumps({"id": row["ID"], "category": row["Category"], "entries": aligned}, ensure_ascii=False) + "\n")
 
-    print(f"{n_resumes} resumes -> {OUT_PATH}")
+    print(f"{n_resumes} resumes -> {out_path}")
     for (sec, name), n in sorted(seen.items()):
         print(f"{sec:14} {name:12} aligned {ok[(sec, name)]}/{n} = {ok[(sec, name)] / n:.1%}")
 

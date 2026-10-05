@@ -420,6 +420,48 @@ Windows-10-10.0.26200-SP0
   suggests a fine-tune would help most on title/degree and could replace the
   0.9 cut-off.
 
+### Stage 10 (part 3) — synthetic renderer, LoRA fine-tune, gold-32 (Stage 10 closed)
+
+- **Gold**: all 32 current AAA PDFs now have a hand-drafted gold entry (`data/gold/drafts/*.json`, `status: drafted`, **unverified**,
+  drafted by me from the raw text, not from LLM JSONs; helpers `tools/gold_fill.py`). Entries whose source PDF is gone from
+  `resume-data/PDFs/AAA` (compressed/docx/renamed copies) are `archived` (kept, not scored); `flowcv` stays a scaffold (no PDF).
+- **Synthetic renderer** (`tools/synth/`): 12 template families (single / two-column sidebars / banner / table / LaTeX-like /
+  Indian-student / timeline / stacked plain / boxed ...), 1,800 resumes rendered through Chromium with exact ground truth,
+  randomised fonts, date formats, section order, headings, degree names. Splits by family: 3 test families (jake, table_docx,
+  banner) and 2 dev families never train. Two extra tagline-style families exist but are excluded by default (see below).
+- **Training data** (`tools/build_gliner_data.py`): the rules stage's entry blocks (same text inference sees) labelled from the
+  printed truth (synthetic) or the HTML tags (LiveCareer resumes disjoint from the eval pool, `aligned_train.jsonl`): 7,965
+  train blocks (5,323 work / 2,642 education), 1,101 dev, 1,899 test (held-out families), 255 LiveCareer dev.
+- **Fine-tune**: LoRA r=8 on encoder + task heads, local RTX 2050 (4 GB), CUDA torch 2.4.0+cu124. Hit and fixed: GPU OOM from one
+  5,000-char outlier block (blocks capped at 600 chars), non-finite losses (bf16 made nearly every micro-batch non-finite;
+  fp16 + skipping the ~1% non-finite micro-batches works). 3 epochs, 1,494 steps, 33 min; eval loss 155.8 -> 145.4 -> 142.4.
+  Adapter (6.9 MB) shipped at `models/adapters/rx3-entry-lora/` (versioned, checksum in `models/MANIFEST.md`).
+- **Results** (shipped adapter v1, cut-off 0.7):
+  - Held-out template families (1,899 blocks), F1 zero-shot -> LoRA: title 71.4 -> **97.0**, company 83.3 -> **94.2**, location
+    52.2 -> **89.1**, institution 78.0 -> **97.0**, degree 67.3 -> **96.9**, field of study 88.7 -> **95.4**.
+  - LiveCareer dev blocks: institution F1 73.3 -> **90.3**, degree 69.7 -> 85.1, field 51.8 -> 83.3 (title recall stays low, 43 %
+    at 83 % precision, because LiveCareer titles often sit outside the head block; the rules title is kept unless the model is >= 0.7).
+  - Fields vs rules (LiveCareer n=100 + AAA vs LLM JSON): company 57.6 -> **86.3**, AAA title 78.0 -> **89.0**, location 8.3 -> **90.3**,
+    LiveCareer school 53.9 -> **90.0**, degree 83.6 -> **94.1**; cost: LiveCareer work-title recall 83.5 -> 80.5 (-3 points, proxy labels).
+  - **Gold-32 entity F1** (rules -> zero-shot GLiNER -> LoRA): work 0.593 -> 0.788 -> **0.801**, education 0.755 -> 0.818 -> **0.827**,
+    projects 0.755 (rules tweak: plain-style titles + Courier "o" bullets, was 0.723), certifications 0.677, awards 0.635; skills F1 0.726.
+- **Targets (entity F1 >= 0.90) are NOT met on gold-32** (dev numbers on unverified gold). Gap by section: work 0.80, education 0.83,
+  projects 0.76 (entry boundaries of plain-style resumes; GLiNER is not applied to projects), certifications 0.68 and awards 0.64
+  (no model; keyword rules only). Remaining work errors: stacked "company / tagline / title / dates" templates, company strings with
+  a parenthetical, "Google | team" style rows. Next options: apply GLiNER/LoRA to projects, certifications and awards; verify the gold
+  (Checkpoint 4B) so the gap is measured against truth; train on a larger and more varied real-resume set.
+- **Production check** (CPU torch 2.14.1, 2 threads, 128 resumes: all AAA + LiveCareer sample, adapter merged into the base weights):
+  0 crashes, schema validity 100 %, hallucination **0.15 %** (13 / 8,394 strings; header link labels and a small-caps name),
+  byte-identical output across two processes, latency **total p50 1.02 s / p95 3.5 s** (GLiNER stage p50 0.96 s / p95 3.2 s; rules-only
+  p50 0.1 s). The earlier "p50 +1.87 s" was measured while a stray background process was burning a core; the PROMPT's ~600 ms
+  stage budget is still exceeded (about 1.6x), so GLiNER stays opt-in (`RX3_ENABLE_GLINER=1`).
+- Robustness fixes found on the way: some blocks ("SSC | ... | 92.2%") gave NaN scores on CPU, which raised "cost_matrix contains NaN"
+  inside GLiNER2 and crashed the extraction (17 of 224 resumes). `GlinerRefiner` now retries a failing batch block by block and
+  leaves the rules value for a block that still fails. Unmerged PEFT adapters also ran ~3x slower; the adapter is merged at load.
+- **A second adapter (v2) with two extra tagline-style families scored worse** (gold work F1 0.776, held-out location F1 66 vs 89)
+  and was dropped; those families are excluded by default (`--include-extra`).
+- **Redo with more data**: README section "Rebuilding the Stage 10 data and the GLiNER adapter" (about 45 min end to end on this GPU).
+
 ### Stage 13 — Small-LM experiment (done at the user's request; NOT shipped)
 
 - `src/rx3/fields/slm/`: Qwen3-0.6B / 1.7B (`unsloth/*-GGUF` Q4_K_M, ~0.4 / 1.1

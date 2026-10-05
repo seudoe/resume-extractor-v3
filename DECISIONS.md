@@ -766,3 +766,20 @@ reference the entry they replace rather than deleting it.
   Determinism holds for a fixed torch thread count (1 vs 2 threads differ in the last float bits); keep `RX3_TORCH_THREADS` fixed.
 - **Latency re-measured**: GLiNER stage p50 0.96 s / p95 3.2 s (2 threads, adapter merged), whole pipeline p50 1.02 s. The earlier
   1.87 s figure was inflated by a stray CPU-bound process that had been running for hours (found and killed). Budget (~600 ms) not met.
+
+## Stage 14 — API, Docker, HF Space
+
+- **`_meta` compatibility** (PROMPT.md: "pick one with the user"): the owner's answer to the question was not captured, so I took the
+  recommended option: the API always returns both `metaDetails` and a legacy `_meta` (name, email, phone, github, linkedin,
+  otherLinks[{label,url}]). Reason: `normaliseHFOutput` in ifind rebuilds `metaDetails` from `_meta` and ignores ours, so without it the
+  current ifind would show empty name/email/phone. Dropping `_meta` is a one-line change once Stage 15 updates ifind. Tell me if you want
+  the other option.
+- **GLiNER on in the image** (`RX3_ENABLE_GLINER=1`): the earlier recommendation (about +1 s per resume, well inside the 30 s cap). The
+  library path stays opt-in. Rules-only service: unset the variable (then torch is not even imported).
+- **Timeout semantics**: `wait_for` returns 504 but a Python thread cannot be killed, so the worker finishes its job in the background and
+  later requests queue behind it. Fine at 1-2 s per resume; a process pool would be the upgrade if hostile inputs matter.
+- **Image contents**: CPU torch (via `uv.lock` index source), tesseract for the OCR fallback, no LibreOffice (~500 MB; `.doc` gets 415).
+  The base model is pinned to commit `ca90624...` and verified by sha256 at build; the 7 MB adapter is versioned in the repo with its
+  checksum (`models/MODEL_CHECKSUMS.txt`). Runtime is offline (`HF_HUB_OFFLINE=1`). Non-root uid 1000 (what Spaces expect).
+- **Unverified**: no Docker here, so build success, image size, container cold start and the `--cpus=2 --memory=16g` run are untested;
+  the lock-file and local-uvicorn paths are tested. First thing to do once Docker or the Space build is available.

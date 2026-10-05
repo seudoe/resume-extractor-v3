@@ -44,3 +44,6 @@ runs/
 !models/adapters/
 !models/adapters/**
 !models/adapters/**/*.safetensors
+
+# needed by the Dockerfile / scripts/fetch_models.py
+!models/MODEL_CHECKSUMS.txt

@@ -32,7 +32,16 @@ See `PROMPT.md` §4 for the full intended layout. Summary:
 
 ## Running locally
 
-Not yet available — environment setup is Stage 3.
+    uv sync --extra gliner --extra dev               # CPU torch on Linux; on Windows see DECISIONS.md "Two torch environments"
+    RX3_ENABLE_GLINER=1 uv run uvicorn rx3.api:app --port 7860      # GLiNER + the shipped LoRA adapter; omit the variable for rules only
+    curl -X POST "http://127.0.0.1:7860/extract" -F "file=@resume.pdf"          # ?debug=true, ?confidence=true
+    curl http://127.0.0.1:7860/health
+
+Environment: `RX3_ENABLE_GLINER` (1 = model refinement), `RX3_GLINER_ADAPTER` (path, or `none` for zero-shot), `RX3_TORCH_THREADS`
+(keep fixed; determinism holds per thread count), `RX3_MAX_BYTES` (10 MB), `RX3_MAX_PAGES` (5), `RX3_TIMEOUT_S` (25), `RX3_GIT_SHA`.
+The response is the `ParsedResumeData` object plus a legacy `_meta` object (name, email, phone, github, linkedin, otherLinks) that ifind's
+`normaliseHFOutput` still reads. Errors: 413 too large, 415 wrong type (including `.doc` when LibreOffice is absent), 422 corrupt /
+password-protected / too many pages, 504 timeout.
 
 ## Running the eval
 
@@ -41,7 +50,12 @@ Command once available: `python -m eval.run_eval --set gold --compare last`
 
 ## Deploying
 
-Not yet available — Docker/HF Space wiring is Stage 14.
+    docker build -t rx3 --build-arg GIT_SHA=$(git rev-parse --short HEAD) .      # bakes the pinned model, verifies checksums
+    docker run --rm --cpus=2 --memory=16g -p 7860:7860 rx3
+    uv run python -m eval.api_perf --url http://127.0.0.1:7860                    # cold start + p50/p95 against the container
+
+Hugging Face Space (new Space, e.g. `seudoe/resume-extractor-v3`, SDK docker): push this repo's tracked files and use
+`deploy/HF_SPACE_README.md` as the Space's `README.md`. Not pushed yet: Checkpoint 14A needs the owner's go-ahead.
 
 ## Rebuilding the Stage 10 data and the GLiNER adapter (re-run on a bigger dataset)
 

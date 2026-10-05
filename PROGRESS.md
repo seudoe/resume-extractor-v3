@@ -483,6 +483,27 @@ Windows-10-10.0.26200-SP0
   when allowed, mislabels institution vs degree.
 - Tests: `tests/test_gliner_slm.py` (2, offline fakes); `pytest -q` -> 82/82.
 
+### Stage 14 — API service, Docker, HF Space (built; NOT pushed)
+
+- `src/rx3/api.py` (FastAPI): `POST /extract` (multipart `file`; PDF / DOCX / DOC) -> `ParsedResumeData` + legacy `_meta`;
+  `?debug=true` adds `_debug`, `?confidence=true` adds `_confidence`; `GET /`, `/health` (status, version, git sha, models loaded, startup
+  and warm-up ms, limits), `/version`. Limits: 10 MB (413), 5 pages (422), password-protected or corrupt (422), wrong type (415),
+  25 s timeout (504); `.doc` converts through LibreOffice when installed, else a clear 415. Models are loaded and warmed once at startup.
+  One extraction at a time (single worker thread; later requests queue).
+- `pipeline.extract` got `max_pages` and an up-front password / page-count check (`TooManyPages`, `UnreadableDocument`).
+- `Dockerfile` (python:3.11-slim, uv, `uv sync --frozen --no-dev --extra gliner`, tesseract + libgomp, pinned model revision baked in and
+  checksum-verified by `scripts/fetch_models.py`, adapter copied in, non-root user 1000, port 7860, healthcheck, `RX3_ENABLE_GLINER=1`),
+  `.dockerignore`, `deploy/HF_SPACE_README.md` (Space front matter). `uv.lock` regenerated: Linux gets CPU-only torch 2.14.1+cpu
+  from the PyTorch CPU index (no CUDA / nvidia packages).
+- Measured here, local uvicorn on CPU (GLiNER + adapter, 2 torch threads; `eval.api_perf`, reports/api_perf_2026-10-05.md):
+  cold start 71 s (model load dominates; the baked image should be faster), **p50 1.6 s, p95 2.9 s** over 30 PDFs, 0 errors,
+  1.5 GB RSS. No `/extract` request exceeded the 25 s timeout.
+- Tests: `tests/test_api.py` (4: health/version, extract + `_meta` + flags, all rejection paths, size limit); `pytest -q` -> 87/87.
+- **Not done / not verified**: Docker is not installed on this machine, so the image has not been built or run and the
+  container eval/perf with `--cpus=2 --memory=16g` is still to do; **Checkpoint 14A** (push to a new HF Space) and **14B** (owner
+  tests the live Space, curl below) wait for the owner's go-ahead; LibreOffice (`.doc`) is not in the image.
+  Live test once deployed: `curl -X POST "$SPACE_URL/extract" -F "file=@resume.pdf"` and `curl "$SPACE_URL/health"`.
+
 ## Next (superseded list below kept for history)
 
 - Stage 6: OCR fallback (RapidOCR + optional Tesseract benchmark). Real

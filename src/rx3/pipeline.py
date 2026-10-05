@@ -11,6 +11,8 @@ import os
 import time
 from pathlib import Path
 
+import pymupdf
+
 import rx3  # noqa: F401  (puts types/ on sys.path)
 from rx3.fields.rules import extract_rules
 from rx3.header import extract_header
@@ -23,7 +25,7 @@ from rx3.ocr.select import apply_ocr_fallback
 from rx3.sections.segment import segment_sections
 from rx3.validate import clean, confidence, grounding
 
-VERSION = "0.12.0-stage12"
+VERSION = "0.14.0-stage14"
 
 
 class UnsupportedFormat(ValueError):
@@ -32,6 +34,10 @@ class UnsupportedFormat(ValueError):
 
 class UnreadableDocument(ValueError):
     """Corrupt or password-protected (the API maps this to 422)."""
+
+
+class TooManyPages(ValueError):
+    """More pages than the caller allows (the API maps this to 422)."""
 
 
 def _kind(data: bytes, filename: str) -> str:
@@ -43,7 +49,8 @@ def _kind(data: bytes, filename: str) -> str:
     raise UnsupportedFormat(f"unsupported file type {ext or 'unknown'!r} (PDF or DOCX only)")
 
 
-def extract(data: bytes, filename: str = "", debug: bool = False, with_confidence: bool = False, gliner: bool | None = None) -> dict:
+def extract(data: bytes, filename: str = "", debug: bool = False, with_confidence: bool = False, gliner: bool | None = None,
+            max_pages: int | None = None) -> dict:
     """`gliner`: refine entry fields with GLiNER2 (Stage 10). None -> env RX3_ENABLE_GLINER=1; off by default so the
     rules-only path needs neither torch nor the model download."""
     timings: dict[str, float] = {}
@@ -56,6 +63,17 @@ def extract(data: bytes, filename: str = "", debug: bool = False, with_confidenc
         last = now
 
     kind = _kind(data, filename)
+    if kind == "pdf":  # cheap pre-checks: password and page count, before any real work
+        try:
+            with pymupdf.open(stream=data, filetype="pdf") as probe:
+                if probe.needs_pass:
+                    raise UnreadableDocument("password-protected PDF")
+                if max_pages and len(probe) > max_pages:
+                    raise TooManyPages(f"{len(probe)} pages (limit {max_pages})")
+        except (UnreadableDocument, TooManyPages):
+            raise
+        except Exception as e:  # noqa: BLE001
+            raise UnreadableDocument(f"could not read pdf: {e}") from e
     try:
         doc = ingest_pdf(data, filename) if kind == "pdf" else ingest_docx(data, filename)
     except Exception as e:  # noqa: BLE001  (pymupdf / python-docx raise assorted types)

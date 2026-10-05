@@ -1,0 +1,2 @@
+7274094de2e0c2a37a386f55fc4e23061a954da5bd7a335e7dfe56f2743c277a  fastino/gliner2.5-base-v1@ca906247640776a07753514055be9726f9080ead  model.safetensors
+104c9cd71ab89434abea4dfd92a24a54bba5f2413f37558b0ab8ea9bc077b486  models/adapters/rx3-entry-lora/adapter_model.safetensors

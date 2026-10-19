@@ -1,0 +1,37 @@
+name: Deploy HF Spaces
+# Pushes main to 8 HF Spaces, one per account. Space 1 is the canary: the other 7 deploy only if it comes up healthy.
+# Secrets: HF_USER_1..8, HF_TOKEN_1..8 (write tokens). Variable HF_SPACE: the Space name (same in every account).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  HF_SPACE: ${{ vars.HF_SPACE || 'resume-extractor-v3' }}
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/deploy_hf_space.sh
+        env:
+          HF_USER: ${{ secrets.HF_USER_1 }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN_1 }}
+
+  rest:
+    needs: canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        n: [2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/deploy_hf_space.sh
+        env:
+          HF_USER: ${{ secrets[format('HF_USER_{0}', matrix.n)] }}
+          HF_TOKEN: ${{ secrets[format('HF_TOKEN_{0}', matrix.n)] }}

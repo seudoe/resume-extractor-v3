@@ -10,7 +10,6 @@ Limits (env): RX3_MAX_BYTES (10 MB), RX3_MAX_PAGES (5), RX3_TIMEOUT_S (25, keep 
 use all the configured threads); further requests queue. Models are loaded and warmed up once at startup."""
 
 import asyncio
-import logging
 import os
 import shutil
 import subprocess
@@ -24,9 +23,11 @@ import pymupdf
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
 
+from rx3.ifind_log import RequestLogMiddleware, get_logger, setup
 from rx3.pipeline import VERSION, TooManyPages, UnreadableDocument, UnsupportedFormat, extract
 
-log = logging.getLogger("rx3.api")
+setup("rx3")
+log = get_logger("api")
 MAX_BYTES = int(os.environ.get("RX3_MAX_BYTES", 10 * 1024 * 1024))
 MAX_PAGES = int(os.environ.get("RX3_MAX_PAGES", 5))
 TIMEOUT_S = float(os.environ.get("RX3_TIMEOUT_S", 25))
@@ -77,12 +78,13 @@ async def lifespan(app: FastAPI):
     extract(_warmup_pdf(), "warmup.pdf")  # warm caches (skill tables, tokenizer, first forward pass)
     _state["warmup_ms"] = round((time.perf_counter() - w0) * 1000)
     _state["startup_ms"] = round((time.perf_counter() - t0) * 1000)
-    log.info("rx3 %s ready in %d ms (warm-up %d ms): %s", VERSION, _state["startup_ms"], _state["warmup_ms"], models)
+    log.ok("rx3 ready", extra={"f": {"version": VERSION, "ms": _state["startup_ms"], "warmup_ms": _state["warmup_ms"], **{f"model_{k}": v for k, v in models.items()}}})
     yield
     _pool.shutdown(wait=False, cancel_futures=True)
 
 
 app = FastAPI(title="resume-extractor-v3", version=VERSION, lifespan=lifespan)
+app.add_middleware(RequestLogMiddleware)
 
 
 @app.get("/")
@@ -128,6 +130,7 @@ async def _read_limited(file: UploadFile) -> bytes:
 
 @app.post("/extract")
 async def extract_endpoint(file: UploadFile = File(...), debug: bool = Query(False), confidence: bool = Query(False)) -> JSONResponse:
+    t_start = time.perf_counter()
     name = file.filename or ""
     ext = Path(name).suffix.lower()
     if ext and ext not in ALLOWED:
@@ -142,13 +145,15 @@ async def extract_endpoint(file: UploadFile = File(...), debug: bool = Query(Fal
     try:
         out = await asyncio.wait_for(job, timeout=TIMEOUT_S)
     except asyncio.TimeoutError:
+        log.warning("extraction timed out", extra={"f": {"file": name, "timeout_s": TIMEOUT_S}})
         raise HTTPException(504, f"extraction exceeded {TIMEOUT_S:.0f} s") from None
     except UnsupportedFormat as e:
         raise HTTPException(415, str(e)) from e
     except (UnreadableDocument, TooManyPages) as e:
         raise HTTPException(422, str(e)) from e
     except Exception as e:  # noqa: BLE001
-        log.exception("extraction failed for %r", name)
+        log.exception("extraction failed", extra={"f": {"file": name}})
         raise HTTPException(500, "extraction failed") from e
     out["_meta"] = legacy_meta(out)
+    log.ok("resume extracted", extra={"f": {"file": name, "bytes": len(data), "ms": round((time.perf_counter() - t_start) * 1000), "debug": debug or None}})
     return JSONResponse(out)

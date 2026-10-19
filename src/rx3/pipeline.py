@@ -14,6 +14,7 @@ from pathlib import Path
 import pymupdf
 
 import rx3  # noqa: F401  (puts types/ on sys.path)
+from rx3.ifind_log import get_logger
 from rx3.fields.rules import extract_rules
 from rx3.header import extract_header
 from rx3.ingest.docx import ingest_docx
@@ -26,6 +27,7 @@ from rx3.sections.segment import segment_sections
 from rx3.validate import clean, confidence, grounding
 
 VERSION = "0.14.0-stage14"
+log = get_logger("pipeline")
 
 
 class UnsupportedFormat(ValueError):
@@ -60,6 +62,7 @@ def extract(data: bytes, filename: str = "", debug: bool = False, with_confidenc
         nonlocal last
         now = time.perf_counter()
         timings[name] = round((now - last) * 1000, 1)
+        log.debug("stage done", extra={"f": {"stage": name, "ms": timings[name]}})
         last = now
 
     kind = _kind(data, filename)
@@ -115,6 +118,9 @@ def extract(data: bytes, filename: str = "", debug: bool = False, with_confidenc
     final, vnotes = clean.validate(strip_private(cleaned))
     lap("validate")
 
+    log.info("pipeline finished", extra={"f": {"file": filename or None, "kind": kind, "pages": len(doc.pages), "ocr_pages": ocr_pages or None,
+                                              "sections": len(sections), "gliner": refiner is not None, "dropped_ungrounded": len(grounded.dropped) or None,
+                                              "ms": round((time.perf_counter() - t0) * 1000)}})
     if with_confidence:
         final["_confidence"] = conf
     if debug:

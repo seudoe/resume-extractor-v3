@@ -129,6 +129,7 @@ def main() -> None:
     ap.add_argument("--max-synth", type=int, default=8000)
     ap.add_argument("--max-lc", type=int, default=4000)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--llm-json", action="store_true", help="also label LiveCareer resumes outside the HTML-tag pools from resume-data/JSONs (tools/llm_json_to_gliner.py)")
     ap.add_argument("--include-extra", action="store_true", help="also train on the tagline-style families (did not help; see families.py)")
     args = ap.parse_args()
     rng = random.Random(args.seed)
@@ -156,7 +157,18 @@ def main() -> None:
         ex = lc_examples(rec, pdf)
         (sets["dev_lc"] if i % 20 == 0 else lc_train).extend(ex)
     rng.shuffle(lc_train)
-    sets["train"] += lc_train[: args.max_lc]
+    lc_train = lc_train[: args.max_lc]  # HTML-tag labels (exact) have priority; LLM-JSON labels only fill the rest of the cap
+    n_html = len(lc_train)
+    if args.llm_json and len(lc_train) < args.max_lc:
+        from llm_json_to_gliner import llm_examples, llm_resumes
+
+        llm_all: list[dict] = []
+        for cat, stem in llm_resumes():
+            llm_all += llm_examples(cat, stem, capture, synth_examples)
+        rng.shuffle(llm_all)
+        lc_train += llm_all[: args.max_lc - len(lc_train)]
+        print(f"LLM-JSON blocks available {len(llm_all)}, used {len(lc_train) - n_html}; HTML-tag blocks {n_html}", flush=True)
+    sets["train"] += lc_train
     for k in ("train",):
         rng.shuffle(sets[k])
     sets["train"] = [e for e in sets["train"]][: args.max_synth + args.max_lc]

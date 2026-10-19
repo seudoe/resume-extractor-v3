@@ -16,7 +16,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--no-pdfs", action="store_true")
 args = ap.parse_args()
 
-parts = [RX3 / "src", RX3 / "tools", RX3 / "eval", RX3 / "pyproject.toml", RX3 / "data" / "train",
+parts = [RX3 / "src", RX3 / "tools", RX3 / "eval", RX3 / "types", RX3 / "pyproject.toml", RX3 / "data" / "train",
          RX3 / "models" / "adapters" / "rx3-entry-lora"]
 if not args.no_pdfs:
     parts += [RX3 / "data" / "synthetic", RX3 / "data" / "livecareer" / "aligned_train.jsonl",

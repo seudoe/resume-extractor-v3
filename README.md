@@ -14,8 +14,18 @@ full spec and stage plan, and `../h.md` for why the old extractor
 
 ## Status
 
-Scaffold only (Stage 1). Nothing runs yet. See `PROGRESS.md` for current
-stage and `DECISIONS.md` for design choices made so far.
+Working service: rules-based extraction plus a GLiNER2.5 model with a shipped LoRA adapter (`models/adapters/rx3-entry-lora`). `reports/FINAL.md` has the stage-16 evaluation summary; `docs/PROGRESS.md` and `docs/DECISIONS.md` hold the stage log and design choices. Target host: a Hugging Face Space (2 vCPU / 16 GB). It is too big for Zoho Catalyst AppSail (2 GB max).
+
+## HTTP API
+
+Interactive docs at `/docs`. Port 7860. Callers go through `../proxy-resume-extractor` (ifind uses `RESUME_EXTRACTOR_URL`).
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/` | service name, version and the endpoint list |
+| `GET` | `/health` | `status` (`ok` / `starting`), version, git sha, models loaded, startup and warmup times, uptime, limits |
+| `GET` | `/version` | version and git sha |
+| `POST` | `/extract` | multipart `file` (PDF or DOCX) returns `ParsedResumeData` plus a legacy `_meta` object. Query: `debug=true`, `confidence=true`. Errors: 413 too large, 415 wrong type (including `.doc`), 422 corrupt, password-protected or too many pages, 504 timeout |
 
 ## Project layout
 

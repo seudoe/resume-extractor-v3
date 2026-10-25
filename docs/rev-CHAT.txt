@@ -1,0 +1,3002 @@
+ ▐▛███▛█   Claude Code v2.1.289
+▝▜██████▀  Sonnet 5.5 · Claude Pro
+ ▝▝   ▝▝   ~\Downloads\iFind30\resume-extractor-v3
+
+
+● Done. process_resumes.py now remembers the last (provider, key) that worked
+  and tries it first for every later PDF.
+
+  I tested it with mocked API calls (no real calls); output below.
+
+  ┌─────┬─────────────────────────────────────┬─────────────────────────────┐
+  │ PDF │           What was tried            │           Result            │
+  ├─────┼─────────────────────────────────────┼─────────────────────────────┤
+  │ 1   │ Gemini key 1 and key 2 fail, then   │ Groq key 1 works and is     │
+  │     │ Groq key 1                          │ remembered                  │
+  ├─────┼─────────────────────────────────────┼─────────────────────────────┤
+  │ 2   │ Groq key 1 only                     │ Gemini not touched          │
+  ├─────┼─────────────────────────────────────┼─────────────────────────────┤
+  │ 3   │ Groq key 1 fails, so Gemini keys    │ Groq key 2 becomes the      │
+  │     │ 1–2, then Groq key 2                │ remembered one              │
+  ├─────┼─────────────────────────────────────┼─────────────────────────────┤
+  │ 4   │ Groq key 2 only                     │ Gemini not touched          │
+  └─────┴─────────────────────────────────────┴─────────────────────────────┘
+
+  - Fallback order: it's unchanged (Gemini, then OpenAI, then Groq). It is only
+    walked when the remembered key fails.
+  - Console: it prints (last working) and Sticking to X for the next PDFs.
+  - --only: it still works with this.
+  - No retry for one-off failures: one failure moves on to the next key, and
+    whichever key succeeds becomes the new default. If Gemini fails once because
+    of a bad JSON reply rather than an outage, the run stays on Groq until Groq
+    fails. Say so if you'd rather retry the remembered key once before
+    switching.
+  - Gemini quota recovery: a run that has switched to Groq won't return to
+    Gemini by itself when Gemini's quota resets. Restart the script to get
+    Gemini first again.
+
+  I kept a copy of the previous version in my scratch folder, not in
+  resume-data.
+
+✻ Sautéed for 1m 4s · done Sunday 8:30 PM
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ /compact                                                                      
+  ⎿  Compacted (ctrl+o to see full summary)
+  ⎿  Read ..\..\..\AppData\Local\Temp\claude\test_sticky.py (43 lines)
+  ⎿  Read ..\..\..\AppData\Local\Temp\claude\patch_sticky.py (54 lines)
+  ⎿  Referenced file ..\resume-extractor-v3\PROGRESS.md
+  ⎿  Referenced file ..\resume-extractor-v3\DECISIONS.md
+  ⎿  Read ..\..\..\AppData\Local\Temp\claude\docs_sidequest.py (65 lines)
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ Now continue in resume-extractor-v3 - be sure to put things in PROGRESS.md in 
+  there                                                                         
+  stage 10 plzzz - the groq extraction is running in the background - gonna use 
+  it in future stages , when necessary ask me                                   
+
+  Searched for 1 pattern, read 1 file, listed 1 directory, ran 4 shell commands (ctrl+o to expand)
+
+● Starting Stage 10: inspecting the LiveCareer HTML tags and checking which ML
+  libraries are installed. Bash can't find uv, so I'm switching to PowerShell.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● The project has a .venv, so I'll use it directly.
+
+  Ran 6 shell commands (ctrl+o to expand)
+
+● I've confirmed LiveCareer's HTML tags every entry field, so now I'll build the
+  aligner mapping those tags to PDF line ids, followed by the rules baseline
+  and a field-level eval. · summary
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Write(tools\livecareer_align.py)
+  ⎿  Wrote 173 lines to tools\livecareer_align.py
+       1 """LiveCareer aligner (PROMPT.md §5 Stage 10.1).
+       3 Parses `Resume_html` entries (div.paragraph = one entry; spans c
+         arry a 4-letter
+         ines of the
+         per line.
+       6 
+         y HR]
+       8 
+         n: company and
+         Company Name",
+     … +198 lines (ctrl+o to expand)
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● The aligner is fixed: alignment now respects entry order, so titles and dates
+  land on the right lines. Next I'm looking at the layout text of a few resumes
+  to design the rules baseline.
+
+  Ran 4 shell commands (ctrl+o to expand)
+
+● Write(src\rx3\fields\rules\dates.py)
+  ⎿  Wrote 69 lines to src\rx3\fields\rules\dates.py
+       1 """Lean date finder for the Stage 10 rules baseline. Stage 11 ow
+       2 `parse_period`; this only locates a range inside text and return
+         s ISO-ish
+       4 
+       6 from dataclasses import dataclass
+       7 
+         ul aug sep oct nov dec".split(), 1)}
+       9 _MON = r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may
+         ember)?|dec(?:ember)?)\.?"
+         |\b\d{{1,2}}\s*[/.-]\s*\d{{4}}\b|\b(?:19|20)\d{{2}}\b)"
+     … +75 lines (ctrl+o to expand)
+
+● Update(src\rx3\fields\rules\dates.py)
+  ⎿  Added 1 line, removed 1 line
+      57      if m:
+      58          e = _EXPECTED.search(text[: m.start()])
+      59          s = e.start() if e else m.start()
+      60 -        return Found((s, m.end()), "", to_iso(m.group(0)), Fals
+         -e, text[s : m.end()]) if (e or True) else None                 
+      60 +        return Found((s, m.end()), "", to_iso(m.group(0)), Fals
+         +e, text[s : m.end()])  # lone date: caller decides start/end   
+      61      return None
+      62  
+      63  
+
+● Writing the entry segmentation and per-section field builders next. The dates
+  module is done.
+
+● Write(src\rx3\fields\rules\entries.py)
+  ⎿  Wrote 91 lines to src\rx3\fields\rules\entries.py
+       1 """Entry boundaries inside a section (PROMPT.md §5 Stage 10.2 ru
+       2 
+       3 An entry = a head (title/company/date lines) followed by a body 
+       4 description). A new entry opens on a line that carries a date ra
+       5 repeats the style of the first head (bold / bigger / coloured), 
+         once the body
+         belong to the
+       7 head ("Present" wrapped under a date, a company under a title)."
+       8 
+      10 from dataclasses import dataclass, field
+     … +93 lines (ctrl+o to expand)
+
+● Write(src\rx3\fields\rules\build.py)
+  ⎿  Wrote 237 lines to src\rx3\fields\rules\build.py
+      1 """Rules baseline: entries -> ParsedResumeData-shaped dicts, per 
+        section."""
+      2 
+      3 import re
+      4 
+      6 
+      7 from rx3.fields.rules._title_words import TITLE_HEADS
+      8 from rx3.fields.rules.dates import Found, find_range, strip_range
+      9 from rx3.fields.rules.entries import CELL, Entry, cells, per_line
+        _entries, split_entries, strip_glyph
+     … +293 lines (ctrl+o to expand)
+
+● Write(src\rx3\fields\rules\__init__.py)
+  ⎿  Wrote 29 lines to src\rx3\fields\rules\__init__.py
+       1 """Rules baseline (Stage 10.2 #1): Document -> ParsedResumeData-
+         shaped dict."""
+       3 from ir import Document
+       4 
+       5 from rx3.fields.rules.build import build_section
+       7 from rx3.sections.segment import segment_sections
+       8 
+       9 LIST_SECTIONS = ["workHistory", "education", "skills", "projects
+      10                  "publications", "affiliations", "awards", "inte
+         rests"]
+     … +23 lines (ctrl+o to expand)
+
+● Update(src\rx3\fields\rules\__init__.py)
+  ⎿  Added 2 lines, removed 2 lines
+      18          if s.name in ("header", "other"):
+      19              continue
+      20          lines = [by_id[i] for i in s.line_ids]
+      21 -        if s.heading_id and s.inline:                          
+      22 -            lines = lines  # inline rows already carry their ow
+         -n content                                                      
+      21 +        if s.inline and s.heading:  # "Languages<tab>English, H
+         +indi": drop the label itself                                   
+      22 +            lines = [l.model_copy(update={"text": l.text.replac
+         +e(s.heading, "", 1).lstrip(" :\t-–")}) for l in lines]         
+      23          built = build_section(s.name, lines)
+      24          if s.name == "summary":
+      25              out["summary"] = (out["summary"] + " " + built).str
+          ip()
+
+● Write(eval\fields_eval.py)
+  ⎿  Wrote 154 lines to eval\fields_eval.py
+       1 """Stage 10 field-level eval for the rules baseline (and later G
+       2 
+         ]
+       5 Two proxies, because only 3 gold resumes are hand-drafted so far
+       6   A. LiveCareer (held-out; weak labels from HTML tags, aligned b
+         y
+         . Work: title,
+         raduation year.
+          label.
+         ut, NOT gold):
+     … +179 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+● The LLM JSONs are stored as plain parsedData, so I'll use load_llm_baseline
+  and tidy the messy bits.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The existing eval modules import flat, so I'll put eval/ on the path to match
+  the other scripts.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● First numbers are in; title recall and education are weak, so I'm looking at
+  concrete failures.
+
+  Searched for 1 pattern, ran 5 shell commands (ctrl+o to expand)
+
+● Still on Stage 10: the remaining work-title misses are mostly entries whose
+  head came back empty. Checking two of those resumes to see why.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Work-title recall is up from 48.8% to 83.1%. Education is still at 17%, so I'm
+  debugging that next.
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● Update(src\rx3\fields\rules\build.py)
+  ⎿  Added 30 lines, removed 1 line
+      113      return (parts[0].strip(), parts[1].strip()) if len(parts) 
+           == 2 else (text.strip(), "")
+      114  
+      115  
+      116 +_INST_OF = re.compile(r"\b(?:University|College|Institute|Scho
+          +ol)\s+of\s+(?:the\s+)?(?:[A-Z][\w'’&.-]*\s*){1,3}")           
+      117 +_INST_RUN = re.compile(r"(?:[A-Z][\w'’&.-]*\s+){0,3}(?:Univers
+          +ity|College|Institute|School|Academy|Polytechnic)\b")         
+      118 +                                                              
+      119 +                                                              
+      120 +def _lift_institution(cands: list[str]) -> list[str]:         
+      121 +    """Plain-document rows glue everything into one cell ("Ass
+          +ociate of Science : Health Administration                     
+      122 +    El Centro Community College"): pull the institution out as
+          + its own candidate, leave the rest in place."""               
+      123 +    out = []                                                  
+      124 +    for c in cands:                                           
+      125 +        m = _INST_OF.search(c) or _INST_RUN.search(c)         
+      126 +        if m and len(c) > len(m.group(0)) + 3:                
+      127 +            out += [m.group(0).strip(), (c[: m.start()] + " " 
+          ++ c[m.end() :]).strip(" ,;:-")]                               
+      128 +        else:                                                 
+      129 +            out.append(c)                                     
+      130 +    return [c for c in out if c]                              
+      131 +                                                              
+      132 +                                                              
+      133 +def _edu_head(l: Line) -> tuple[bool, bool]:                  
+      134 +    return bool(_DEGREE.search(l.text)), bool(_INSTITUTION.sea
+          +rch(l.text))                                                  
+      135 +                                                              
+      136 +                                                              
+      137 +def _edu_opens(cur: Entry, l: Line) -> bool:                  
+      138 +    """A second degree (or second institution) line can't belo
+          +ng to the same entry."""                                      
+      139 +    deg, inst = _edu_head(l)                                  
+      140 +    cdeg = any(_edu_head(h)[0] for h in cur.head)             
+      141 +    cinst = any(_edu_head(h)[1] for h in cur.head)            
+      142 +    return (deg and cdeg) or (inst and cinst and not deg)     
+      143 +                                                              
+      144 +                                                              
+      145  def education(entry: Entry) -> dict:
+      146      cands, found = _head_candidates(entry)
+      118 -    cands = _split_candidates(cands)                          
+      147 +    cands = _lift_institution(_split_candidates(cands))       
+      148      inst = next((c for c in cands if _INSTITUTION.search(c)), 
+           "")
+      149      deg = next((c for c in cands if c != inst and _DEGREE.sear
+           ch(c)), "")
+      150      if not inst:
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● My patch script had a quoting error and nothing was applied, so I'll use the
+  Edit tool for this one.
+
+● Update(src\rx3\fields\rules\build.py)
+  ⎿  Added 12 lines
+      130      return [c for c in out if c]
+      131  
+      132  
+      133 +_DEGREE_START = re.compile(r"(?=\b(?:Master|Bachelor|Associate
+          +|Doctor|Diploma)(?:'s)?\s+(?:of|in|degree)\b)", re.I)         
+      134 +                                                              
+      135 +                                                              
+      136 +def _split_degrees(lines: list[Line]) -> list[Line]:          
+      137 +    """One plain row listing several degrees ("Master of Scien
+          +ce : X ... Bachelor of Science : Y") becomes one row each.""" 
+      138 +    out = []                                                  
+      139 +    for l in lines:                                           
+      140 +        parts = [p for p in _DEGREE_START.split(l.text) if p.s
+          +trip()]                                                       
+      141 +        out += [l.model_copy(update={"text": p.strip()}) for p
+          + in parts] if len(parts) > 1 else [l]                         
+      142 +    return out                                                
+      143 +                                                              
+      144 +                                                              
+      145  def _edu_head(l: Line) -> tuple[bool, bool]:
+      146      return bool(_DEGREE.search(l.text)), bool(_INSTITUTION.sea
+           rch(l.text))
+      147  
+
+● Update(src\rx3\fields\rules\build.py)
+  ⎿  Added 2 lines, removed 1 line
+      260      if name == "interests":
+      261          return interests(lines)
+      262      if name in ENTRY_BUILDERS:
+      263 -        entries = split_entries(lines, _edu_opens if name == "
+          -education" else None)                                         
+      263 +        edu = name == "education"                             
+      264 +        entries = split_entries(_split_degrees(lines) if edu e
+          +lse lines, _edu_opens if edu else None)                       
+      265          if name in PER_LINE and len(entries) <= 1 and len(line
+           s) > 2:
+      266              entries = per_line_entries(lines)
+      267          return [e for e in (ENTRY_BUILDERS[name](x) for x in e
+           ntries) if any(v for v in e.values() if v)]
+
+  Ran 5 shell commands (ctrl+o to expand)
+
+● Existing tests build synthetic documents, so I'll follow that pattern. Adding
+  the rules test file and the run_eval --baseline rx3 hook.
+
+● Write(tests\test_fields_rules.py)
+  ⎿  Wrote 58 lines to tests\test_fields_rules.py
+      1 import sys
+      2 from pathlib import Path
+      3 
+      4 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "
+        src"))
+      6 from ir import BBox, Document, Line, Page, Span  # noqa: E402
+      7 from rx3.fields.rules import extract_rules  # noqa: E402
+      8 from rx3.fields.rules.dates import find_range, to_iso  # noqa: E4
+        02
+      9 from rx3.layout import analyze_layout  # noqa: E402
+     … +63 lines (ctrl+o to expand)
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Update(src\rx3\fields\rules\build.py)
+  ⎿  Added 4 lines
+      62          parts = [p.strip(" ,;") for p in _SEP.split(c) if p and
+           p.strip(" ,;")]
+      63          if len(parts) > 1 and all(_is_title(p) for p in parts) 
+          and not re.search(r"\s(?:at|@|\|)\s", c):
+      64              parts = [c]  # "Accountant - Payables / Accounting 
+          Clerk" is one title
+      65 +        if len(parts) == 1 and ", " in c:  # "Senior Engineer, 
+         +Acme Inc." (but not "Pune, India")                             
+      66 +            a, b = c.split(", ", 1)                            
+      67 +            if (_is_title(a) and not _is_title(b)) or (_is_comp
+         +any(a) and _is_title(b)):                                      
+      68 +                parts = [a.strip(), b.strip()]                 
+      69          out += parts or [c]
+      70      return out
+      71  
+
+  Ran 5 shell commands (ctrl+o to expand)
+
+● Rules baseline is in place. I'm writing the Stage 10 notes into DECISIONS.md
+  and PROGRESS.md now.
+
+● Update(PROGRESS.md)
+  ⎿  Added 20 lines
+      305    `eval.header_eval`. **Calibration not run yet** (needs Groq 
+           keys in
+      306    `resume-data/.env`): see DECISIONS "Side quest".
+      307  
+      308 +### Stage 10 (part 1 of 3) — aligner, rules baseline, field ev
+          +al                                                            
+      309 +                                                              
+      310 +- `tools/livecareer_align.py`: HTML `div.paragraph` entries ->
+          + IR line ids.                                                 
+      311 +  108-resume sample: alignment 99.5-100 % on every tagged fiel
+          +d                                                             
+      312 +  (`data/livecareer/aligned.jsonl`, gitignored). Tag findings 
+          +in DECISIONS.                                                 
+      313 +- `src/rx3/fields/rules/` (`dates.py`, `entries.py`, `lex.py`,
+          + `build.py`,                                                  
+      314 +  generated `_title_words.py` via `tools/build_title_lexicon.p
+          +y`):                                                          
+      315 +  entry segmentation + field roles for work/education/projects
+          +/awards/                                                      
+      316 +  certifications/affiliations/publications/languages/interests
+          +/skills/summary.                                              
+      317 +- `eval/fields_eval.py` (`uv run python -m eval.fields_eval`) 
+          ++ `run_eval                                                   
+      318 +  --baseline rx3`. Rules, LiveCareer weak labels (108 resumes)
+          +: work title                                                  
+      319 +  recall 82.9 %, start 99.5 %, end 99.0 %; education degree 81
+          +.2 %, year                                                    
+      320 +  85.6 %, **school 43.4 %** (plain rows glue degree+field+scho
+          +ol into one                                                   
+      321 +  cell). AAA agreement with LLM JSONs: work F1 56.6, education
+          + 75.1,                                                        
+      322 +  projects 73.5, certifications 67.7, awards 41.5 (reference =
+          + LLM output).                                                 
+      323 +- `tests/test_fields_rules.py` (3); `pytest -q` -> 67/67.     
+      324 +- **Not done yet:** synthetic template renderer (10.1), GLiNER
+          +2 zero-shot                                                   
+      325 +  (needs `torch` + `gliner2`, a multi-GB install -> asked firs
+          +t), LoRA                                                      
+      326 +  fine-tune (Checkpoint 10A), combine-by-eval + latency check.
+      327 +                                                              
+      328  ## Next (superseded list below kept for history)
+      329  
+      330  - Stage 6: OCR fallback (RapidOCR + optional Tesseract benchma
+           rk). Real
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● Stage 10 is partly done: the LiveCareer aligner, a rules baseline and a
+  field-level eval are built and staged, not committed. The GLiNER2 steps, the
+  synthetic renderer and the LoRA fine-tune are not started, so Stage 10 isn't
+  finished. pytest -q passes 67/67.
+
+  What's built
+  - Aligner (tools/livecareer_align.py): it maps the LiveCareer HTML entry tags
+    onto PDF line ids. Alignment is 99.5–100% on every tagged field (108
+    resumes). Company names and cities are anonymised in the source, so there
+    are no company or location labels.
+  - Rules baseline (src/rx3/fields/rules/): it splits entries and assigns fields
+    for work, education, projects, awards, certifications, affiliations,
+    publications, languages, interests, skills and summary.
+  - Eval (eval/fields_eval.py, plus run_eval --baseline rx3).
+  - Docs: DECISIONS.md has the HTML tag findings and the rules design.
+    PROGRESS.md has the status.
+
+  Results (rules only)
+
+  ┌─────────────────────────────────┬───────────────────────────────────────┐
+  │             Metric              │                Result                 │
+  ├─────────────────────────────────┼───────────────────────────────────────┤
+  │ Work title recall (LiveCareer   │ 82.9% (was 48.8% on the first run)    │
+  │ HTML labels)                    │                                       │
+  ├─────────────────────────────────┼───────────────────────────────────────┤
+  │ Work start / end dates          │ 99.5% / 99.0%                         │
+  ├─────────────────────────────────┼───────────────────────────────────────┤
+  │ Education degree / graduation   │ 81.2% / 85.6%                         │
+  │ year                            │                                       │
+  ├─────────────────────────────────┼───────────────────────────────────────┤
+  │ Education school                │ 43.4%                                 │
+  ├─────────────────────────────────┼───────────────────────────────────────┤
+  │ AAA agreement with LLM JSONs,   │ work 56.6, education 75.1, projects   │
+  │ F1                              │ 73.5, awards 41.5                     │
+  └─────────────────────────────────┴───────────────────────────────────────┘
+
+  - Weakest spot: plain-text rows where the field of study runs into the school
+    name, for example "Systems Support Tulane University". Rules can't split
+    these, so GLiNER is the next step.
+  - Weak references: the LiveCareer labels are weak, and the AAA reference is
+    LLM output, not gold. Only 3 gold files are drafted, so the first four rows
+    of the table are proxies.
+  - AAA date columns: these aren't comparable, because the LLM wrote dates as
+    "Aug 2024".
+
+  Decisions for you
+  1. GLiNER2 install: GLiNER2 needs torch and gliner2, which are not installed.
+     It's a multi-GB install, so I'm asking first. Should I install uv sync 
+     --extra gliner (CPU torch) for the zero-shot run?
+  2. Synthetic renderer: I deferred the ≥10-template synthetic PDF renderer,
+     since the fine-tune is its only consumer. Should I build it before
+     Checkpoint 10A, or fine-tune on LiveCareer-aligned data alone first?
+  3. Groq/LLM JSONs: I haven't used them yet. Say if you want them as extra
+     training data.
+
+  I haven't run any training or Groq calls.
+
+  Commit message:
+  Stage 10 (part 1): LiveCareer aligner, rules entry extraction, field eval
+
+  - tools/livecareer_align.py: align HTML entry tags to IR line ids (>=99.5% 
+  coverage)
+  - rx3.fields.rules: entry segmentation + field roles for all entry sections
+  - eval/fields_eval.py + run_eval --baseline rx3
+  - docs: HTML tag findings, rules design, measured results
+
+  Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+✻ Churned for 13m 15s · done Sunday 8:48 PM
+
+※ recap: Building the LLM-free resume extractor, and Stage 10's rules baseline and eval are done and staged for your commit. Next: tell me whether to install GLiNER2 (large torch download) so I can run the zero-shot step. (disable recaps in /config)
+
+
+-------------------------
+
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ stage 11 plzz                                                                 
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ be sure to fill                                                               
+  c:\Users\4dmin\Downloads\iFind30\resume-extractor-v3\PROGRESS.md - as u       
+  started                                                                       
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Write(src\rx3\normalise\periods.py)
+  ⎿  Wrote 76 lines to src\rx3\normalise\periods.py
+      1 """`parse_period(text) -> DateRange` (PROMPT.md §5 Stage 11).
+      2 
+      3 Empty-value policy: an unknown start stays "" and an unknown end 
+      4 nothing is ever filled with today's date (v2 did that). Dates are
+         "YYYY-MM-01"
+      5 (a bare year -> "YYYY-01-01"; a season/quarter -> its first month
+        ).
+      7 
+      8 import re
+      9 from datetime import date
+     … +86 lines (ctrl+o to expand)
+
+  Ran 2 shell commands (ctrl+o to expand)
+● Write(src\rx3\normalise\education.py)
+  ⎿  Wrote 70 lines to src\rx3\normalise\education.py
+       1 """Education normalisation: degree abbreviations, course split, 
+       2 
+       3 import re
+       5 # (canonical name, pattern matched against the whole degree text
+       6 _DEGREES = [
+       7     ("Bachelor of Technology", r"b\.?\s?tech\.?|bachelors?'?s?\s
+       8     ("Master of Technology", r"m\.?\s?tech\.?|masters?'?s?\s+(?:
+         of|in)\s+technology"),
+         ?:of|in)\s+engineering"),
+         |in)\s+engineering"),
+     … +93 lines (ctrl+o to expand)
+
+● Write(src\rx3\normalise\bullets.py)
+  ⎿  Wrote 26 lines to src\rx3\normalise\bullets.py
+      1 """Bullets: responsibilities vs achievements, project metrics (St
+      2 
+      3 import re
+      5 _NUM = re.compile(r"(?:\d[\d,.]*\s*(?:%|x\b|k\b|m\b|\+|percent|mi
+        llion|billion|crore|lakh|users|customers|clients|requests|ms|hour
+      6 _RANK = re.compile(r"\b(?:ranked?|rank\s*\d+|top\s*\d+|top\s+\d+%
+        |1st|2nd|3rd|first place|second place|third place|winner|won|runn
+        |employee of the (?:year|month))\b", re.I)
+      7 _IMPACT = re.compile(r"\b(?:reduced|increased|improved|boosted|sa
+        ubled|tripled)\b[^.]{0,60}?\b(?:by|to|from|over|of)\b"
+     … +28 lines (ctrl+o to expand)
+
+● Write(src\rx3\normalise\_tech.py)
+  ⎿  Wrote 54 lines to src\rx3\normalise\_tech.py
+      1 """Curated technology table: group -> entries "Canonical|alias|al
+      2 on word boundaries; `CASE_SENSITIVE` ones (single letters, common
+         words) only inside explicit skill lists.
+         (the taxonomy file of PROMPT.md Stage 11)."""
+      4 
+      6     "Programming Languages": [
+      7         "Python|py", "JavaScript|js|java script|ecmascript", "Typ
+      8         "Go|golang", "Rust", "Kotlin", "Swift", "Ruby", "PHP", "S
+        cala", "R", "MATLAB", "Perl", "Dart", "Bash|shell scripting|shell
+      9         "SQL", "HTML|html5", "CSS|css3", "
+     … +84 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Write(src\rx3\normalise\skills.py)
+  ⎿  Wrote 147 lines to src\rx3\normalise\skills.py
+       1 """Skills: canonical names, grouping into `field` buckets, years
+       2 
+       3 Sources of skills: (1) the resume's own skill lists (their `Labe
+         l: a, b` grouping is kept), (2) explicit
+         curated-technology mentions in bullets.
+       5 Skills that appear only under Interests are never skills (intere
+       6 
+       7 import re
+       8 from datetime import date
+      10 from pathlib import Path
+     … +159 lines (ctrl+o to expand)
+
+● Stage 11 so far: dates, education, bullets and skills modules are written. Now
+  the enrichment module (work type, awards vs certifications, project links)
+  and the normalise() entry point.
+
+● Write(src\rx3\normalise\enrich.py)
+  ⎿  Wrote 109 lines to src\rx3\normalise\enrich.py
+       1 """Work type, award/certification split, project fields (Stage 1
+         1)."""
+       2 
+       4 
+       5 from ir import BBox, Document
+       6 
+       7 from rx3.normalise.bullets import has_number, split_bullets
+       9 
+      10 _INTERN = re.compile(r"\bintern(?:ship)?s?\b|\btrainee\b|\bappre
+         ntice\b", re.I)
+     … +132 lines (ctrl+o to expand)
+
+● Write(src\rx3\normalise\__init__.py)
+  ⎿  Wrote 33 lines to src\rx3\normalise\__init__.py
+       1 """Stage 11: normalise and enrich the rules (or later GLiNER) ou
+         tput. Pure functions over dicts; every output
+         degree names (their raw text keeps provenance
+       3 through `_lines`, stripped at the end)."""
+       4 
+       6 
+       7 from ir import Document
+       8 
+      10 from rx3.normalise.enrich import enrich_project, enrich_work, sp
+         lit_awards_and_certs
+     … +33 lines (ctrl+o to expand)
+
+  Ran 5 shell commands (ctrl+o to expand)
+
+● Write(tests\test_normalise.py)
+  ⎿  Wrote 131 lines to tests\test_normalise.py
+       1 import re
+       2 import sys
+       3 from datetime import date
+       4 from pathlib import Path
+       5 
+         "src"))
+       7 
+       8 from hypothesis import given, settings  # noqa: E402
+       9 from hypothesis import strategies as st  # noqa: E402
+      10 from ir import Document  # noqa: E402
+     … +178 lines (ctrl+o to expand)
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Filling in PROGRESS.md and DECISIONS.md for Stage 11.
+
+● Update(PROGRESS.md)
+  ⎿  Added 28 lines
+      325    (needs `torch` + `gliner2`, a multi-GB install -> asked firs
+           t), LoRA
+      326    fine-tune (Checkpoint 10A), combine-by-eval + latency check.
+      327  
+      328 +### Stage 11 — Normalisation and enrichment                   
+      329 +                                                              
+      330 +- `src/rx3/normalise/`: `periods.py` (`parse_period`, `finish_
+          +period`),                                                     
+      331 +  `education.py` (canonical degrees, course split, CGPA/percen
+          +tage),                                                        
+      332 +  `bullets.py` (achievements vs responsibilities), `skills.py`
+          + + `_tech.py`                                                 
+      333 +  (curated tech table, `_skill_names.txt` generated from      
+      334 +  `skill_db_relax_20.json` by `tools/build_skill_names.py`), `
+          +enrich.py`                                                    
+      335 +  (work type, award/certification reclassification, project me
+          +trics/stack/links),                                           
+      336 +  `__init__.py` (`normalise(parsed, doc)`).                   
+      337 +- Rules stage now attaches `_lines` (line ids) and `_heading` 
+          +to each entry so                                              
+      338 +  Stage 12 grounding has provenance; `normalise` strips them f
+          +rom the output.                                               
+      339 +- `eval/fields_eval.py --extractor rules+norm`; `run_eval --ba
+          +seline rx3`                                                   
+      340 +  now runs rules + normalisation.                             
+      341 +- Results (reports/fields_rules+norm_2026-10-04.md): work star
+          +t/end **99.5 /                                                
+      342 +  99.0 %** (LiveCareer labels), education year **85.4 %** (bel
+          +ow the 95 %                                                   
+      343 +  target; misses are entry-boundary errors in messy plain-text
+          + education                                                    
+      344 +  blocks, not parser errors), degree 80.3 %. Skills names vs L
+          +LM JSONs on AAA:                                              
+      345 +  P 63.2 / R 80.2 / **F1 69.0** (gold-3: F1 0.58); bullet-ment
+          +ion discovery                                                 
+      346 +  changed nothing on AAA.                                     
+      347 +- Tests: `tests/test_normalise.py` (8, incl. 2 `hypothesis` pr
+          +operty tests for                                              
+      348 +  `parse_period`: never raises/never fabricates a date, ordere
+          +d-range                                                       
+      349 +  round-trip); `pytest -q` -> 75/75.                          
+      350 +- `hypothesis` installed into `.venv` (small) and added to dev
+          + deps in                                                      
+      351 +  `pyproject.toml`; `uv.lock` not regenerated.                
+      352 +- Open: education date accuracy needs better entry segmentatio
+          +n (Stage 10                                                   
+      353 +  GLiNER, still waiting on the torch install go-ahead); skills
+          + F1 is measured                                               
+      354 +  against LLM output, not gold.                               
+      355 +                                                              
+      356  ## Next (superseded list below kept for history)
+      357  
+      358  - Stage 6: OCR fallback (RapidOCR + optional Tesseract benchma
+           rk). Real
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Stage 11 is built and staged, not committed. pytest -q passes 75/75. Education
+  dates miss the 95% target, so the exit check isn't fully met. Details are in
+  PROGRESS.md and DECISIONS.md.
+
+  What's built (src/rx3/normalise/)
+  - Dates: parse_period handles ranges, Aug '22, 2022-23, 08/2023, Q3 2023,
+    seasons, lone years and "Expected May 2027". An unknown start stays empty
+    and nothing is ever filled with today's date. A student whose end date is in
+    the future counts as current.
+  - Education: degree abbreviations become full names (B.Tech → Bachelor of
+    Technology), and "B.Tech in IT" splits into degree and course. A CGPA, GPA
+    or percentage becomes CGPA: 9.875. A scale like /10 is added only when the
+    resume states one.
+  - Work and bullets: work type (internship, volunteer, co-op) comes from the
+    title, company and section heading. Bullets with a measurable result move to
+    achievements. Project metrics are copies of description bullets that
+    contain a figure.
+  - Awards vs certifications: both lists are reclassified by wording, regardless
+    of which section the entry sat in.
+  - Skills:
+    - Naming and grouping: names are canonicalised through a curated table, and
+      the resume's own Label: groups are kept. Ungrouped items go into taxonomy
+      buckets.
+    - Extra skills: more skills come from project and work tech-stack lines and
+      from bullet mentions.
+    - Years and last used: yearsOfExperience and lastUsed come from work periods
+      where a skill appears. They stay 0 and "" when nothing supports them.
+  - Projects: links come from the PDF annotations inside the project's block.
+  - Provenance: each entry now carries its source line ids, which normalise
+    strips from the output. This is for Stage 12 grounding.
+
+  Results (weak labels; only 3 gold files are drafted)
+
+  ┌───────────────────────────────────────────┬─────────────────────────────┐
+  │                  Metric                   │           Result            │
+  ├───────────────────────────────────────────┼─────────────────────────────┤
+  │ Work start / end dates (LiveCareer        │ 99.5% / 99.0%               │
+  │ labels)                                   │                             │
+  ├───────────────────────────────────────────┼─────────────────────────────┤
+  │ Education graduation year                 │ 85.4% (target ≥ 95%,        │
+  │                                           │ missed)                     │
+  ├───────────────────────────────────────────┼─────────────────────────────┤
+  │ Education degree                          │ 80.3%                       │
+  ├───────────────────────────────────────────┼─────────────────────────────┤
+  │ Skills vs LLM JSON on AAA                 │ P 63.2, R 80.2, F1 69.0     │
+  ├───────────────────────────────────────────┼─────────────────────────────┤
+  │ Skills vs hand-drafted gold (3 files)     │ F1 0.58                     │
+  └───────────────────────────────────────────┴─────────────────────────────┘
+
+  - Education year misses: the misses I inspected come from wrong entry
+    boundaries in messy plain-text education blocks, not from date parsing.
+    GLiNER should fix those.
+  - Skill discovery: picking up skills from bullet mentions changed nothing on
+    AAA.
+  - Skills reference: it is LLM output, not gold.
+
+  Housekeeping
+  - I added hypothesis to the project. It's small and installed in .venv. I
+    added it to the dev dependencies in pyproject.toml, but uv.lock is stale
+    until you run uv lock.
+  - I ran no training and no Groq calls.
+  - Stage 10's GLiNER, synthetic renderer and LoRA fine-tune are still pending,
+    waiting on your answers about the torch install and whether to build the
+    synthetic renderer.
+
+  Commit message:
+  Stage 11: normalisation and enrichment
+
+  - normalise: parse_period (+hypothesis tests), degree/score normalisation,
+    achievements vs responsibilities, work type, award/cert reclassification
+  - skills: curated tech table + skill-DB names, grouping, years/lastUsed
+  - projects: metrics, tech stack, links from PDF annotations
+  - rules stage keeps provenance (_lines); eval: rules+norm, skills F1
+
+  Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+✻ Worked for 6m 55s · done Sunday 9:43 PM
+
+※ recap: Goal: build resume-extractor-v3, an LLM-free resume-to-JSON extractor, stage by stage; Stage 11 (normalisation) is built and staged awaiting your commit. Next: commit it, then say whether I may install torch and GLiNER2 for Stage 10's zero-shot step. (disable recaps in /config)
+
+
+
+-------------------------------
+
+
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ next plzz - stage 12                                                          
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Write(src\rx3\validate\grounding.py)
+  ⎿  Wrote 185 lines to src\rx3\validate\grounding.py
+       1 """Grounding (PROMPT.md §5 Stage 12): every output string must b
+       2 
+       3 A string is grounded when its normalised form occurs in a source
+       4 first) or fuzzily (>= 0.9, partial alignment) anywhere in the do
+       5 hallucination candidate. Values the pipeline *normalises* (ISO d
+         ates, canonical degree names, E.164 phones,
+          copies; they inherit the provenance of the raw
+       7 text they came from (the entry's lines) and are checked through 
+       8 
+      10 import re
+     … +205 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Write(src\rx3\validate\clean.py)
+  ⎿  Wrote 103 lines to src\rx3\validate\clean.py
+       1 """Validation, dedupe and ordering of the final object (PROMPT.m
+         d §5 Stage 12)."""
+       2 
+       3 import re
+       4 
+       6 from resume import ParsedResumeData
+       7 
+       8 from rx3.validate.grounding import norm
+       9 
+      10 DEDUPE_SIM = 0.95
+     … +117 lines (ctrl+o to expand)
+
+● Write(src\rx3\validate\confidence.py)
+  ⎿  Wrote 74 lines to src\rx3\validate\confidence.py
+       1 """Per-field confidence in 0-1 (PROMPT.md §5 Stage 12).
+       2 
+         pe, period): a feature bucket per field maps to
+       4 the accuracy measured on held-out LiveCareer weak labels (`eval/
+         calibrate_confidence.py` writes
+         listed in `UNCALIBRATED`, so a consumer knows
+       6 which numbers are measured and which are priors."""
+       7 
+       9 from functools import lru_cache
+      10 from pathlib import Path
+     … +90 lines (ctrl+o to expand)
+
+  Searched for 1 pattern, ran 2 shell commands (ctrl+o to expand)
+
+● Update(src\rx3\validate\confidence.py)
+  ⎿  Added 1 line, removed 1 line
+      31          return f"lex={int(is_title(t))}|short={int(len(t.split(
+          )) <= 6)}|dated={int(bool(e['period']['start'] or e['period']['
+          isCurrent']))}"
+      32      if field == "edu.institution":
+      33          i = e["institution"]
+      34 -        kw = bool(__import__("re").search(r"\b(university|colle
+         -ge|institute|school|academy|polytechnic)\b", i, __import__("re"
+         -).I))                                                          
+      34 +        kw = bool(re.search(r"\b(university|college|institute|s
+         +chool|academy|polytechnic)\b", i, re.I))                       
+      35          return f"kw={int(kw)}|short={int(len(i.split()) <= 6)}"
+      36      if field == "edu.degree":
+      37          t = e["field"]["type"]
+
+● Write(src\rx3\pipeline.py)
+  ⎿  Wrote 103 lines to src\rx3\pipeline.py
+       1 """The extraction pipeline (PROMPT.md §5 Stage 12): bytes -> Par
+       2 
+       3     from rx3.pipeline import extract
+       4     out = extract(pdf_bytes, "resume.pdf", debug=True)   # out["
+       5 
+       6 Stages: ingest (+OCR fallback) -> layout -> sections -> header -
+       7 dedupe/order -> confidence -> validate. Deterministic: no random
+         ness, no network, no model calls yet (GLiNER
+       8 slots in at the rules stage once Stage 10 finishes)."""
+      10 import time
+     … +108 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+● Write(eval\calibrate_confidence.py)
+  ⎿  Wrote 105 lines to eval\calibrate_confidence.py
+       1 """Calibrate Stage 12 field confidences on LiveCareer weak label
+       2 
+       3     uv run python tools/livecareer_align.py --n 500     # more l
+       4     uv run python -m eval.calibrate_confidence
+       5 
+          how well it holds out (mean predicted
+       7 confidence vs observed accuracy per field, plus ECE). The shippe
+       8 Labels are weak (HTML tags of one template family), so this cali
+         brates against that source, not real-world data."""
+      10 import json
+     … +124 lines (ctrl+o to expand)
+
+  Read 1 file, listed 1 directory, ran 11 shell commands (ctrl+o to expand)
+
+● Write(tests\test_pipeline.py)
+  ⎿  Wrote 99 lines to tests\test_pipeline.py
+       1 import json
+       2 import sys
+       3 from pathlib import Path
+       4 
+       5 import pymupdf
+       7 
+       8 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 
+         "src"))
+       9 
+      10 from ir import BBox, Document, Line, Page  # noqa: E402
+     … +134 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(src\rx3\validate\grounding.py)
+  ⎿  Added 2 lines
+      199                  w = walk(v, f"{path}[{i}]", prefer, section, k
+           ey)
+      200                  if isinstance(w, str) and not w and isinstance
+           (v, str) and v.strip():
+      201                      continue  # ungrounded list element: dropp
+           ed
+      202 +                if isinstance(w, dict) and _had_text(v) and no
+          +t _has_text(w):                                               
+      203 +                    continue  # every text field of the elemen
+          +t failed grounding (e.g. a skill tool)                        
+      204                  kept.append(w)
+      205              return kept
+      206          return node
+
+● Update(src\rx3\validate\grounding.py)
+  ⎿  Added 7 lines
+      119          return any(re.search(rf"(?<![0-9a-z]){re.escape(norm(a
+           ))}(?![0-9a-z])", self.concat) for a in names if norm(a))
+      120  
+      121  
+      122 +def _has_text(d: dict) -> bool:                               
+      123 +    return any(isinstance(v, str) and v.strip() for k, v in d.
+          +items() if not k.startswith("_"))                             
+      124 +                                                              
+      125 +                                                              
+      126 +_had_text = _has_text                                         
+      127 +                                                              
+      128 +                                                              
+      129  def ground(data: dict, doc: Document) -> Grounded:
+      130      """Return a copy of `data` with ungrounded strings removed
+           . Entry dicts must still carry `_lines`."""
+      131      idx = SourceIndex(doc)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The only failure is my test's check: n_lines in the debug block contains the
+  substring _lines. I'll narrow the assertion to the output fields.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(PROGRESS.md)
+  ⎿  Added 38 lines
+      353    GLiNER, still waiting on the torch install go-ahead); skills
+            F1 is measured
+      354    against LLM output, not gold.
+      355  
+      356 +### Stage 12 — Grounding, validation, confidence, pipeline    
+      357 +                                                              
+      358 +- `src/rx3/pipeline.py`: `extract(bytes, filename, debug=False
+          +, with_confidence=False)`                                     
+      359 +  runs ingest (+OCR fallback) -> layout -> sections -> header 
+          +-> rule entries                                               
+      360 +  -> normalise -> ground -> dedupe/order -> confidence -> vali
+          +date, with                                                    
+      361 +  per-stage timings in `_debug.timings_ms`. `UnsupportedFormat
+          +` (-> 415) and                                                
+      362 +  `UnreadableDocument` (-> 422) for the API stage.            
+      363 +- `src/rx3/validate/`: `grounding.py` (every string must be fo
+          +und in a source                                               
+      364 +  line, exact or fuzzy >= 0.9 or ordered tokens; else dropped 
+          ++ logged; derived                                             
+      365 +  values — ISO dates, canonical degree/skill names, phones, en
+          +ums, group names —                                            
+      366 +  inherit the entry's provenance), `clean.py` (drop empty entr
+          +ies, fuzzy dedupe                                             
+      367 +  >= 0.95, document order by line id, pydantic validate with p
+          +er-entry                                                      
+      368 +  fallback, never raises), `confidence.py` (+ `_calibration.js
+          +on`).                                                         
+      369 +- Provenance: `_debug.provenance` maps each grounded field pat
+          +h to source line ids.                                         
+      370 +- Confidence: calibrated on LiveCareer weak labels (455 resume
+          +s, fit on even                                                
+      371 +  ids, reported on odd): work title ECE 0.015 (mean conf .940 
+          +vs acc .952),                                                 
+      372 +  period 0.012, education degree 0.085, institution 0.114 (wea
+          +k). Everything                                                
+      373 +  else is a fixed prior, listed in `_debug.uncalibrated_confid
+          +ence`.                                                        
+      374 +- Exit check (`uv run python -m eval.pipeline_eval`, 224 resum
+          +es: all AAA +                                                 
+      375 +  stratified LiveCareer): schema validity **100 %**; hallucina
+          +tion **0.18 %**                                               
+      376 +  (26 / 14,658 strings, independent PyMuPDF text + link annota
+          +tions as source;                                              
+      377 +  target <= 0.5 %); determinism **byte-identical** across two 
+          +processes with                                                
+      378 +  different `PYTHONHASHSEED`; 0 crashes.                      
+      379 +- Latency (warm, this machine, single process): total p50 **99
+          + ms**, p95 205 ms                                             
+      380 +  (ingest 26, layout 13, header 9, normalise 38 p50). OCR scan
+          +s are extra                                                   
+      381 +  (Tesseract ~2 s/page).                                      
+      382 +- `run_eval --baseline v3` (alias `rx3`) now runs the full pip
+          +eline on AAA. On the                                          
+      383 +  3 draft-gold files entity F1 is unchanged from the rules bas
+          +eline (workHistory                                            
+      384 +  .67, education .67, projects .33...): the gap is entry segme
+          +ntation, not                                                  
+      385 +  grounding.                                                  
+      386 +- Tests: `tests/test_pipeline.py` (5); `pytest -q` -> 80/80.  
+      387 +- Metric fixes found while measuring: `eval/metrics._norm` now
+          + NFKC-folds and                                               
+      388 +  strips curly quotes (the pipeline's text is NFKC + ftfy); ha
+          +llucination                                                   
+      389 +  exempts normalised values (documented in DECISIONS).        
+      390 +- Open: GLiNER stage (Stage 10) still not started — waiting on
+          + the torch                                                    
+      391 +  install go-ahead; the 26 flagged strings are mostly header-l
+          +ink labels                                                    
+      392 +  ("Portfolio"), small-caps names, and a few template rows.   
+      393 +                                                              
+      394  ## Next (superseded list below kept for history)
+      395  
+      396  - Stage 6: OCR fallback (RapidOCR + optional Tesseract benchma
+           rk). Real
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Stage 12 is built and staged, not committed. pytest -q passes 80/80, and all
+  three exit checks are met.
+
+  What's built
+  - Pipeline (src/rx3/pipeline.py): extract(bytes, filename, debug=False, 
+    with_confidence=False) runs the full chain with per-stage timing. It raises
+    UnsupportedFormat for wrong file types and UnreadableDocument for corrupt
+    files, for the Stage 14 API to map to 415 and 422.
+  - Grounding: any output string not found in the source lines is dropped and
+    logged in _debug. Normalised values (ISO dates, canonical degree and skill
+    names, phones) are checked through the raw text they came from.
+  - Dedupe and order: near-duplicates are merged and empty entries dropped.
+    Entries follow document order.
+  - Validation: it never raises. A schema error drops the offending entry and
+    retries.
+  - Confidence: scores are calibrated on LiveCareer weak labels (455 resumes)
+    for work title, period, education degree and institution. The rest are fixed
+    priors, listed in _debug. _debug.provenance maps each output field to its
+    source line ids.
+
+  Exit check (224 resumes: all AAA plus a stratified LiveCareer sample)
+
+  ┌────────────────┬────────┬───────────────────────────────────────────────┐
+  │     Check      │ Target │                    Result                     │
+  ├────────────────┼────────┼───────────────────────────────────────────────┤
+  │ Schema         │ 100%   │ 100%                                          │
+  │ validity       │        │                                               │
+  ├────────────────┼────────┼───────────────────────────────────────────────┤
+  │ Hallucination  │ ≤ 0.5% │ 0.18% (26 of 14,658 strings)                  │
+  ├────────────────┼────────┼───────────────────────────────────────────────┤
+  │ Determinism    │ 100%   │ Byte-identical JSON in two processes with     │
+  │                │        │ different hash seeds, on 12 files             │
+  ├────────────────┼────────┼───────────────────────────────────────────────┤
+  │ Crashes        │ none   │ 0                                             │
+  └────────────────┴────────┴───────────────────────────────────────────────┘
+
+  - Calibration: it holds out well for title (ECE 0.015) and period (0.012). For
+    education degree it is 0.085, and for institution 0.114, which is weak.
+  - Latency: total p50 is 99 ms and p95 is 205 ms warm (a rough Stage 14 input,
+    not a final measurement). OCR on scanned files adds about 2 s per page.
+  - Gold run: on the 3 draft-gold files, entity F1 is unchanged from the rules
+    baseline. Entry segmentation is still the gap, not grounding.
+
+  Measuring the hallucination rate
+  - Independent source: it is checked against PyMuPDF plain text plus link
+    annotations, not the pipeline's own text. The pypdf text in
+    resume-data/TEXTs was missing content for some PDFs, so it is only the
+    fallback for scans.
+  - Metric fixes: I fixed two things in eval/metrics.py: it now folds Unicode
+    and curly quotes the way the pipeline's text does, and it exempts normalised
+    values (documented in DECISIONS.md).
+  - Remaining flags: most are header link labels like "Portfolio" and small-caps
+    names.
+
+  Deferred: the ifind _meta object, size/page limits, timeouts and .doc
+  conversion all wait for Stage 14.
+
+  PROGRESS.md and DECISIONS.md are updated. Stage 10's GLiNER step, the
+  synthetic renderer and the LoRA fine-tune are still not started. They need
+  your answers on the torch install and the renderer from before.
+
+  Commit message:
+  Stage 12: grounding, validation, confidence, pipeline.extract
+
+  - rx3.pipeline.extract with per-stage timing and debug/provenance output
+  - validate: grounding (drop ungrounded strings), dedupe/order, pydantic 
+  fallback
+  - confidence calibrated on LiveCareer weak labels 
+  (eval/calibrate_confidence.py)
+  - eval/pipeline_eval.py: schema 100%, hallucination 0.18%, deterministic
+  - metrics: NFKC-fold, derived-value exemption; run_eval --baseline v3
+
+  Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+✻ Crunched for 11m 9s · done Sunday 10:20 PM
+
+※ recap: We're building the LLM-free resume extractor in resume-extractor-v3, and Stage 12 (grounding, validation, confidence, pipeline) is finished and staged, with all exit checks met. Next, commit it using the message I gave, then tell me to start Stage 13 or answer the GLiNER install question.
+
+
+
+---------------------------
+
+
+
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ stage 13 sir -                                                                
+
+● User answered Claude's questions:
+  ⎿  · Checkpoint 13A: Stage 13 (small-LM experiment) is optional and only 
+     justified if Stages 10-12 miss targets after the encoder path. Stage 10's 
+     GLiNER step (zero-shot, then LoRA) hasn't run yet. How do you want to 
+     proceed? → can u do both stage 10 GliNER and SLM experiment? 
+
+  Ran 5 shell commands (ctrl+o to expand)
+
+● Stage 13 plus the Stage 10 GLiNER step is under way: torch (CPU) and gliner2
+  are installed in the project venv. I'm reading the structured-extraction API
+  before downloading the model.
+
+  Searched for 2 patterns, ran 4 shell commands (ctrl+o to expand)
+
+● Write(src\rx3\fields\gliner\__init__.py)
+  ⎿  Wrote 124 lines to src\rx3\fields\gliner\__init__.py
+       1 """GLiNER2 zero-shot field extraction per entry block (PROMPT.md
+       2 
+       3 For each rules-segmented entry the head lines are sent to `fasti
+       4 (`include_spans=True`). Returned character spans are mapped back
+       5 an exact substring of the source and grounds by construction. `G
+         linerRefiner` plugs into `extract_rules(refiner=...)`
+         y`:
+       7 
+       9     gliner  - GLiNER value wherever it returned one
+         d]`, else the rules va
+     … +145 lines (ctrl+o to expand)
+
+  Searched for 1 pattern, ran 4 shell commands (ctrl+o to expand)
+
+● GLiNER eval is still running in the background and llama-cpp-python is
+  installed. I'm now fetching the two Qwen3 GGUF models for the SLM experiment.
+
+  Listed 1 directory, ran 16 shell commands (ctrl+o to expand)
+
+● GLiNER adds about +1.9s p50 latency per resume on 2 threads, and int8
+  quantization hurts accuracy too much (72% agreement). Moving on to building
+  the SLM (Qwen3) experiment with line-pointer outputs and constrained decoding.
+  · summary
+
+● Write(src\rx3\fields\slm\__init__.py)
+  ⎿  Wrote 100 lines to src\rx3\fields\slm\__init__.py
+      1 """Small-LM experiment (PROMPT.md §5 Stage 13). OFF by default (`
+        RX3_ENABLE_SLM=0`); nothing imports this unless asked.
+      3 Pointer approach: per rules-segmented entry block the model sees 
+        numbered lines and must answer, for every field,
+      4 the *line number* and the text copied from that line, in JSON enf
+      5 cannot ramble or open a thinking block). Each answer is grounded:
+         the copied text must occur in the claimed line,
+      6 otherwise it is dropped. Qwen3 thinking is disabled with `/no_thi
+      7 Same refiner interface as the GLiNER one, so `extract_rules(refin
+        er=SlmRefiner(...))` and the eval harness work as
+     … +123 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Another heredoc escape slip; fixing that line with the Edit tool.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(src\rx3\fields\slm\__init__.py)
+  ⎿  Added 2 lines, removed 4 lines
+      59          return self.llm
+      60  
+      61      def _ask(self, section: str, lines: list[tuple[str, str]]) 
+          -> dict:
+      62 -        key = hashlib.sha1((f"{self.name}                      
+      63 -{section}                                                      
+      64 -" + "                                                          
+      65 -".join(t for _, t in lines)).encode()).hexdigest()             
+      62 +        blob = "\n".join([self.name, section, *[t for _, t in l
+         +ines]])                                                        
+      63 +        key = hashlib.sha1(blob.encode()).hexdigest()          
+      64          if key in self.cache:
+      65              return self.cache[key]
+      66          t0 = time.perf_counter()
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● The SLM experiment gives non-null output now, but at 4–6 s per entry block.
+  I'm running the small-scale accuracy comparison for both models in the
+  background while I write tests and docs.
+  Ran 1 shell command (ctrl+o to expand)
+
+● Write(tests\test_gliner_slm.py)
+  ⎿  Wrote 68 lines to tests\test_gliner_slm.py
+       1 """Offline tests for the model-backed refiners: the models are r
+         eplaced by canned outputs, so no torch/GGUF is loaded."""
+       2 
+       4 from pathlib import Path
+       5 
+       6 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 
+         "src"))
+       8 from ir import BBox, Document, Line, Page, Span  # noqa: E402
+       9 from rx3.fields.gliner import GlinerRefiner  # noqa: E402
+      10 from rx3.fields.rules import extract_rules  # noqa: E402
+     … +79 lines (ctrl+o to expand)
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Monitor(Wait until both SLM evals finish)
+  ⎿  Monitor started · task b9mclj5p6 · timeout 1800s
+
+● Monitor(Re-arm wait for SLM completion)
+  ⎿  Monitor started · task b2s7jb1kx · timeout 1800s
+
+● Both SLM accuracy runs are still going in the background (Qwen3-0.6B first,
+  then 1.7B). I'm waiting for them to finish before running the like-for-like
+  rules and GLiNER comparison.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Waiting on the background SLM runs (about 12 minutes for the 0.6B model, then
+  about 25 for the 1.7B). I'll continue as soon as the monitor reports they're
+  done.
+
+✻ Brewed for 50m 23s · done Sunday 11:20 PM
+
+※ recap: Goal: build the LLM-free resume extractor, and I'm on Stage 13 plus the Stage 10 GLiNER step. GLiNER is integrated behind a flag, and the Qwen3 SLM accuracy runs are going in the background. Next I'll compare rules, GLiNER and SLM on the same data, then write docs and a commit message.
+
+● Monitor event: "Wait until both SLM evals finish"
+  [Monitor expired after 30m with no events delivered. Re-arm it if you still 
+  need the watch — and widen the filter if silence was unexpected.]
+
+  Searched for 1 pattern, ran 1 shell command (ctrl+o to expand)
+
+● Monitor event: "Re-arm wait for SLM completion"
+  [Monitor expired after 30m with no events delivered. Re-arm it if you still 
+  need the watch — and widen the filter if silence was unexpected.]
+
+● The 0.6B model is clearly worse than the rules (work-title recall 47.9% vs
+  about 83%). While the 1.7B run continues, I'm scoring rules and GLiNER on the
+  same subset for a fair comparison.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The full 1.7B run would take well over an hour, so I'm stopping it and
+  rerunning all three configurations on a smaller shared subset (10 AAA resumes
+  plus 6 LiveCareer).
+
+  Ran 4 shell commands (ctrl+o to expand)
+
+● Monitor(Wait for the small 1.7B run)
+  ⎿  Monitor started · task b6krdst6i · timeout 1800s
+
+● Waiting on the small 1.7B run (about 7 minutes). The rules and GLiNER numbers
+  for the same subset come after.
+
+✻ Cogitated for 1m 42s · done Sunday 11:51 PM
+
+● Monitor "Wait for the small 1.7B run" stream ended
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Update(PROGRESS.md)
+  ⎿  Added 50 lines
+      391    install go-ahead; the 26 flagged strings are mostly header-l
+           ink labels
+      392    ("Portfolio"), small-caps names, and a few template rows.
+      393  
+      394 +### Stage 10 (part 2) — GLiNER2 zero-shot, combined per field 
+      395 +                                                              
+      396 +- Installed in `.venv` (user approved both experiments): CPU `
+          +torch 2.14.1`,                                                
+      397 +  `gliner2[local]` (+ transformers, peft), model `fastino/glin
+          +er2.5-base-v1`                                                
+      398 +  (downloaded on first load, HF cache). `pyproject.toml`: `gli
+          +ner` / `slm` extras.                                          
+      399 +- `src/rx3/fields/gliner/`: per entry block (head lines, cells
+          + joined with ` | `)                                           
+      400 +  `batch_extract_json` with a per-section schema, `include_spa
+          +ns=True`; spans are                                           
+      401 +  mapped back to line ids (`_gliner` debug metadata keeps line
+          +s + confidence).                                              
+      402 +  `rules/build.py` got a `refiner` hook; `extract_rules(refine
+          +r=...)`.                                                      
+      403 +- **Chosen configuration** (`COMBINE`, one joint cut-off): GLi
+          +NER overrides the                                             
+      404 +  rules value for company/title/location/institution/degree/co
+          +urse when its                                                 
+      405 +  confidence >= 0.9. `eval/combine_search.py` (n=100 LiveCaree
+          +r + AAA vs LLM                                                
+      406 +  JSONs): company 57.6 -> **84.3**, LiveCareer school 53.9 -> 
+          +**77.0**, AAA                                                 
+      407 +  institution 82.8 -> **89.8**, course 52.1 -> 61.5, AAA entit
+          +y F1 work 56.6 ->                                             
+      408 +  **76.0**, education 75.1 -> **81.5**; costs: LiveCareer titl
+          +e recall 83.5 ->                                              
+      409 +  82.7, degree 83.6 -> 81.1. Pure GLiNER (no cut-off) is worse
+          + on title/degree.                                             
+      410 +- Pipeline: `extract(..., gliner=None)` / env `RX3_ENABLE_GLIN
+          +ER=1` (**off by                                               
+      411 +  default**). With it on (224 resumes): schema validity 100 %,
+          + hallucination                                                
+      412 +  **0.18 %**, byte-identical across processes, 0 crashes.     
+      413 +- **Latency miss**: GLiNER adds p50 **1.87 s** / p95 3.3 s per
+          + resume (2 threads;                                           
+      414 +  ~0.33 s per entry block); whole pipeline p50 1.97 s vs 99 ms
+          + rules-only. The                                              
+      415 +  PROMPT budget (~600 ms for the stage) is **not met**. Tried:
+          + dynamic int8                                                 
+      416 +  (1.6x faster, but only 72.5 % field agreement with fp32 -> r
+          +ejected); shorter                                             
+      417 +  schema text (22 % faster, 92 % agreement -> not adopted).   
+      418 +- Not done (Stage 10): synthetic template renderer, LoRA fine-
+          +tune (Checkpoint                                              
+      419 +  10A: not proposed/approved yet), token classifier (10B). The
+          + zero-shot gain                                               
+      420 +  suggests a fine-tune would help most on title/degree and cou
+          +ld replace the                                                
+      421 +  0.9 cut-off.                                                
+      422 +                                                              
+      423 +### Stage 13 — Small-LM experiment (done at the user's request
+          +; NOT shipped)                                                
+      424 +                                                              
+      425 +- `src/rx3/fields/slm/`: Qwen3-0.6B / 1.7B (`unsloth/*-GGUF` Q
+          +4_K_M, ~0.4 / 1.1                                             
+      426 +  GB in `models/slm/`, gitignored) through `llama-cpp-python 0
+          +.3.36` (prebuilt CPU                                          
+      427 +  wheel). Per entry block: numbered lines in, JSON out (`{line
+          +, text}` per field)                                           
+      428 +  enforced by a JSON-schema grammar, thinking off (`/no_think`
+          +), each answer                                                
+      429 +  grounded in the pointed line else dropped. Flag `RX3_ENABLE_
+          +SLM=1` (off).                                                 
+      430 +- Result (same metrics, subsets noted; weak references):      
+      431 +  - Latency: median **5.0 s per entry block** on 2 threads (0.
+          +6B ~1-4 s, 1.7B                                               
+      432 +    4-6.5 s), i.e. ~25 s per resume vs 600 ms budget.         
+      433 +  - Qwen3-0.6B (n=15 LiveCareer + 32 AAA): work title recall 4
+          +7.9 % (rules 87.3,                                            
+      434 +    GLiNER 84.5 on the same subset), school 37.5 %, degree-typ
+          +e 23 %.                                                       
+      435 +  - Qwen3-1.7B (10 AAA + 6 LiveCareer, tiny): work recall 71.4
+          + % (rules 89.3,                                               
+      436 +    GLiNER 85.7), company 90.3 % (GLiNER 91.7), title 90.3 % (
+          +rules 100), school                                            
+      437 +    50 % (GLiNER 75), degree/course 31 / 38 %.                
+      438 +- Verdict: loses to the encoder path on accuracy **and** fails
+          + latency by ~40x.                                             
+      439 +  Do not ship; revisit only with a fine-tuned small model on a
+          + GPU (Checkpoint                                              
+      440 +  13B, not requested). Failure modes: tiny model copies whole 
+          +lines, picks null                                             
+      441 +  when allowed, mislabels institution vs degree.              
+      442 +- Tests: `tests/test_gliner_slm.py` (2, offline fakes); `pytes
+          +t -q` -> 82/82.                                               
+      443 +                                                              
+      444  ## Next (superseded list below kept for history)
+      445  
+      446  - Stage 6: OCR fallback (RapidOCR + optional Tesseract benchma
+           rk). Real
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Stage 13 and the Stage 10 GLiNER step are done and staged, not committed.
+  pytest -q passes 82/82. GLiNER helps accuracy but misses the latency budget,
+  and the small-LM experiment lost on both counts, so it isn't shipped.
+
+  Stage 10 – GLiNER2 zero-shot
+  - Setup: I installed CPU torch, gliner2 and fastino/gliner2.5-base-v1 into the
+    project .venv only. Each entry block from the rules stage goes through
+    GLiNER, and the returned spans map back to line ids. Every value is an exact
+    source substring.
+  - Merge rule: GLiNER overrides the rules value only when its confidence is ≥
+    0.9. A bug of mine (a loop variable shadowing the record key) briefly made
+    per-field cut-offs look necessary. After the fix, one joint 0.9 cut-off
+    matched or beat them.
+  - Results (100 LiveCareer + 32 AAA resumes; references are weak labels and LLM
+    output, not gold):
+
+  ┌──────────────────────────────────┬───────┬─────────────┐
+  │              Metric              │ Rules │ With GLiNER │
+  ├──────────────────────────────────┼───────┼─────────────┤
+  │ Company agreement with LLM JSONs │ 57.6% │ 84.3%       │
+  ├──────────────────────────────────┼───────┼─────────────┤
+  │ LiveCareer school                │ 53.9% │ 77.0%       │
+  ├──────────────────────────────────┼───────┼─────────────┤
+  │ AAA institution                  │ 82.8% │ 89.8%       │
+  ├──────────────────────────────────┼───────┼─────────────┤
+  │ AAA work entity F1               │ 56.6  │ 76.0        │
+  ├──────────────────────────────────┼───────┼─────────────┤
+  │ AAA education entity F1          │ 75.1  │ 81.5        │
+  ├──────────────────────────────────┼───────┼─────────────┤
+  │ LiveCareer work title recall     │ 83.5% │ 82.7%       │
+  ├──────────────────────────────────┼───────┼─────────────┤
+  │ LiveCareer degree                │ 83.6% │ 81.1%       │
+  └──────────────────────────────────┴───────┴─────────────┘
+
+  - Pipeline with GLiNER on (224 resumes): schema validity 100%, hallucination
+    0.18%, byte-identical output across processes.
+  - Latency miss: GLiNER adds p50 1.87 s / p95 3.3 s per resume on 2 threads,
+    against the ~600 ms budget. Total pipeline p50 is 1.97 s, versus 99 ms for
+    rules only. Int8 quantisation was 1.6× faster but changed 27.5% of confident
+    fields, so I rejected it.
+  - Default: RX3_ENABLE_GLINER is off by default, so the library path stays
+    torch-free.
+
+  Stage 13 – small-LM experiment
+  - Setup: I tried Qwen3-0.6B and 1.7B (Q4 GGUF, via llama.cpp) with
+    line-pointer output and JSON-grammar-constrained decoding. Every answer must
+    be grounded in the line it points to.
+  - Latency: the median is 5.0 s per entry block, about 25 s per resume.
+  - Accuracy: on a subset of 15 LiveCareer and 32 AAA resumes, the 0.6B model
+    gets work-title recall of 47.9% (rules 87.3%, GLiNER 84.5%). The 1.7B
+    comparison uses only 10 AAA and 6 LiveCareer resumes, because a full run
+    would take about 2 hours. It is noisy, but 1.7B still trails GLiNER on
+    recall and school.
+  - Verdict: the SLM loses on accuracy and misses latency by about 40×, so it is
+    not shipped. RX3_ENABLE_SLM stays off.
+
+  Still not done for Stage 10: the synthetic template renderer, the LoRA
+  fine-tune (Checkpoint 10A) and the token classifier (10B). I haven't proposed
+  or run any training.
+
+  Decision for you (Stage 14): how to handle GLiNER's latency.
+  - Ship it on: adds about 2 s per resume, well inside the 30 s request cap.
+  - Education and company only: roughly half the blocks, so roughly half the
+    time.
+  - GPU in the Space.
+  - Fine-tune a smaller model: this is the 10A route, and it would need your
+    approval first.
+
+  I recommend shipping it on for now and revisiting latency after Stage 14.
+
+  PROGRESS.md and DECISIONS.md are filled in. The model files (models/slm/) and
+  the GLiNER cache are gitignored.
+
+  Commit message:
+  Stage 10 (GLiNER zero-shot) + Stage 13 (SLM experiment)
+
+  - fields/gliner: per-entry GLiNER2.5 extraction, span->line-id mapping, joint 
+  0.9 override cut-off
+  - rules refiner hook; pipeline flags RX3_ENABLE_GLINER / RX3_ENABLE_SLM (both 
+  off)
+  - fields/slm: Qwen3 GGUF pointer extraction with grammar + grounding (not 
+  shipped)
+  - eval: combine_search, fields_eval extractors, pipeline_eval --gliner
+  - grounding ignores private metadata keys; docs with measured latency miss
+
+  Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+✻ Sautéed for 4m 15s · done Sunday 11:57 PM
+
+※ recap: We're building the LLM-free resume extractor stage by stage, and Stages 10 (GLiNER part) and 13 are finished and staged but not committed. Next, you commit them and tell me how to handle GLiNER's latency, then we start Stage 14.
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ stage 14 plzz                                                                 
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● User declined to answer questions
+  ⎿  · ifind's normaliseHFOutput rebuilds metaDetails from `raw._meta` and 
+     ignores our `metaDetails`, so without `_meta` the current ifind would show 
+     empty name/email/phone. How should v3 handle this? (Emit both now 
+     (Recommended) / metaDetails only)
+     · Docker isn't installed on this machine, so I can't build the image or run
+     the eval inside `--cpus=2 --memory=16g` here. What do you want? (Write 
+     Dockerfile, test API locally (Recommended) / I'll install Docker Desktop)
+
+● What would you like to clarify about those two questions: the _meta
+  compatibility choice, the Docker situation, or something else?
+
+✻ Crunched for 27s · done Monday 12:03 AM
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ is resume-extractor-v3 done??                                                 
+
+● No. Stages 1–13 are built and staged or committed, but there are still open
+  items.
+
+  Not built
+  - Stage 14 (API, Docker, HF Space) hasn't been started. I stopped at the two
+    questions you wanted to clarify.
+  - Stage 15 (ifind integration) is not started, and I won't touch ifind/
+    without your permission.
+
+  Built but incomplete
+  - Stage 10: the synthetic template renderer, the LoRA fine-tune (Checkpoint
+    10A) and the token classifier (10B) were never run. GLiNER ships zero-shot
+    only.
+
+  Targets missed or unverified
+  - Accuracy numbers: all of them are proxies. Only 3 gold files are drafted,
+    and none are verified (Checkpoint 4B is open). The LiveCareer labels are
+    weak, and the AAA reference is LLM output.
+  - Reading-order check: Checkpoint 7A (your yes/no on the overlays) is still
+    open.
+  - Education date accuracy: 85%, against a 95% target.
+  - GLiNER latency: it adds about 1.9 s per resume, against a ~600 ms budget.
+
+  Stage 14 status: I haven't written any Stage 14 code or run the Docker check.
+  Docker isn't installed here, so I can't build the image locally.
+
+  What was unclear in the two questions?
+✻ Baked for 7s · done Monday 12:04 AM
+
+※ recap: The goal is finishing resume-extractor-v3, with Stages 1–13 built and Stage 14 (API, Docker, HF Space) not started. Next I'm waiting for you to say what was unclear about the `_meta` compatibility and Docker questions.
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ how can we complete stage 10?                                                 
+
+● Stage 10 needs five more pieces.
+
+  1. Synthetic renderer (about 1 session, no training):
+     - Render FILES/resume_data.csv rows into PDFs with at least 10 template
+       families: single and two-column, sidebar, Indian-student style with CGPA
+       and PoR, LaTeX-style, Canva-style with icons, and table-based DOCX.
+     - Randomise fonts, date formats, bullets, section order and heading
+       synonyms.
+     - Ground truth is exact because we render it.
+     - Needs Playwright's Chromium, about 150 MB. ReportLab and Jinja2 are
+       already installed.
+     - Needs your OK for the Chromium download.
+  2. Training data: convert the synthetic PDFs and the 455 LiveCareer-aligned
+     resumes into GLiNER's JSONL format, split by template family so whole
+     families are held out. Gold is never in train.
+  3. LoRA fine-tune (Checkpoint 10A, I'll ask first):
+     - Plan: LoRA on fastino/gliner2.5-base-v1 with r=8 and a small batch.
+     - Runs locally on the RTX 2050 (4 GB). That needs CUDA torch, about 2.5 GB,
+       in the project venv. Alternative: Kaggle T4, nothing installed locally.
+     - Estimated 30–90 min.
+     - Needs your OK on where it runs, the data size and the output path.
+  4. Re-eval and combine: compare fine-tuned against zero-shot and rules, then
+     replace the 0.9 cut-off rule if the fine-tune wins. Token classifier (10B)
+     only if the targets are still missed.
+  5. Verified gold: the exit check (entity F1, sub-field accuracy on gold) can't
+     be claimed on 3 unverified drafts. I need your verification (4B) or more
+     gold resumes (4A). I can draft more from the 32 AAA files.
+
+  Skip step 1 and fine-tune on LiveCareer-aligned data alone, if you want it
+  faster. The risk is overfitting to one template family, which is exactly what
+  the held-out split guards against.
+
+  What I need from you:
+  - OK for Chromium?
+  - Local GPU or Kaggle for the fine-tune?
+  - Will you verify the gold I draft?
+
+✻ Sautéed for 13s · done Monday 12:32 AM
+
+● 2 background shell command tasks didn't finish before the previous session
+ended. Task ids: b9mclj5p6, b2s7jb1kx.
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ /export resume-extractor-v3-CHAT.md                                           
+  ⎿  Conversation exported to:
+     C:\Users\4dmin\Downloads\iFind30\resume-extractor-v3-CHAT.md
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ what do i need to do ? stepwise guidance - and then u can complete stage 10   
+
+● You only need to answer three questions, and the Stage 10 work will wait on
+  those.
+
+  Step 1: reply with these three answers (a few minutes)
+  1. Chromium for the synthetic renderer: may I run playwright install chromium
+     into the project venv (about 150 MB)? Yes or no.
+  2. Where the LoRA fine-tune runs (Checkpoint 10A). I recommend your local RTX
+     2050 (4 GB).
+     - Local needs CUDA torch in the venv, about 2.5 GB. May I install it?
+     - Plan: LoRA r=8, small batch, roughly 30–90 minutes. Output goes to
+       models/gliner-lora/, which is gitignored.
+     - The alternative is Kaggle's T4, with nothing installed locally. That
+       means you'd upload the data and run a notebook I prepare, which is more
+       work for you.
+  3. Gold verification (Checkpoint 4B, it decides whether I can claim Stage 10's
+     exit check). Pick one:
+     - (a) You check the 3 drafted files in
+       resume-extractor-v3/data/gold/drafts/, plus header_gold.json and
+       section_gold.json, against the PDFs. You tell me "verified" or send
+       corrections.
+     - (b) I draft more gold from the 32 AAA resumes first, so you review a
+       bigger set later.
+     - (c) Skip it. Stage 10 is then marked "dev numbers only, gold unverified".
+
+  Step 2: while I build (nothing for you to do)
+  I will build the synthetic renderer (10+ template families, held-out whole
+  families) and convert it plus the 455 LiveCareer-aligned resumes into training
+  JSONL. I'll also add tests.
+
+  Step 3: just before training
+  Plug in the laptop and close other GPU-heavy apps (games, video, browser tabs
+  with video). I'll tell you when the run starts and how long it should take.
+
+  Step 4: after training (I do all of it)
+  I'll evaluate fine-tuned against zero-shot and rules, replace the 0.9 cut-off
+  if the fine-tune wins, then update the docs and give you the commit message.
+
+  Say "yes, yes, 3a" or whatever combination you choose, and I'll start
+  immediately.
+
+✻ Cooked for 22s · done Monday 12:42 PM
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ 1. yes, 2. yess continue inside the resume-extractor-v3 - be sure to add the  
+  big files into .gitignore, 3. i think 32 will be enough for now - can we redo 
+  it if i get a big dataset of more resumes?                                    
+
+● Starting now: environment first (Chromium, CUDA torch, .gitignore), then the
+  renderer, data builders, training and evaluation.
+
+  Searched for 1 pattern, ran 6 shell commands (ctrl+o to expand)
+
+● While the CUDA torch download finishes in the background, I'm checking how
+  GLiNER2 represents field descriptions in training data to make sure my
+  inference schema matches. · summary
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Writing the synthetic renderer: 12 template families built from combinations
+  of layout, header, entry and font styles, rendered through Chromium with exact
+  ground truth.
+
+● Write(tools\synth\families.py)
+  ⎿  Wrote 41 lines to tools\synth\families.py
+      1 """Template families for the synthetic resume renderer (PROMPT.md
+         §5 Stage 10.1).
+      3 A family is a fixed combination of: page layout, section-header s
+        tyle, work-entry style, education-entry style, font stack,
+      4 colours and bullet glyph. Splits are made by family (whole famili
+      5 not just in colour. Twelve families; `TEST_FAMILIES` / `DEV_FAMIL
+        IES` are never used for training.
+      6 """
+      8 from dataclasses import dataclass
+      9 
+     … +51 lines (ctrl+o to expand)
+
+● Write(tools\synth\data.py)
+  ⎿  Wrote 103 lines to tools\synth\data.py
+       1 """Turn `FILES/resume_data.csv` rows into structured synthetic r
+       2 
+       3 The CSV is sparse (mostly one job / one degree per row, "N/A" lo
+         cations), so each synthetic resume starts from one row and
+         ries are unrelated people's jobs stitched together; that's
+       5 fine for block-level field extraction, which is what this data t
+       6 
+       7 import ast
+       8 import csv
+      10 import re
+     … +149 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The patch script aborted without writing, so I'll make the same edits with the
+  Edit tool.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(tools\synth\data.py)
+  ⎿  Removed 3 lines
+      62              skills += [_clean(s) for s in _lst(r["skills"]) if 
+          _clean(s)]
+      63              langs += [_clean(s) for s in _lst(r["languages"]) i
+          f _clean(s)]
+      64              certs += [_clean(s) for s in _lst(r["certification_
+          skills"]) if _clean(s)]
+      65 -            bl = [b.strip() for b in (r["responsibilities"] or 
+         -"").split("\n") if 8 < len(b.strip()) < 140]                   
+      66 -            for w in work[-len(comps):] if comps else []:      
+      67 -                w.setdefault("bullets", bl[:4])                
+      65      return {"work": work, "edu": edu, "skills": sorted(set(skil
+          ls)), "langs": sorted(set(langs)) or ["English", "Hindi"], "cer
+          ts": sorted(set(certs))}
+      66  
+      67  
+
+● Update(tools\synth\data.py)
+  ⎿  Added 3 lines, removed 1 line
+      47          for r in csv.DictReader(f):
+      48              comps, pos = _lst(r["professional_company_names"]),
+           _lst(r["positions"])
+      49              starts, ends, locs = _lst(r["start_dates"]), _lst(r
+          ["end_dates"]), _lst(r["locations"])
+      50 +            bl = [b.strip() for b in (r["responsibilities"] or 
+         +"").split("\n") if 8 < len(b.strip()) < 140]                   
+      51              for i, (c, p) in enumerate(zip(comps, pos)):
+      52                  c, p = _clean(c), _clean(p)
+      53                  if c and p and len(c) < 60 and len(p) < 60:
+      54                      work.append({"company": c, "title": p, "loc
+          ation": _clean(locs[i]) if i < len(locs) else "",
+      54 -                                 "start": _clean(starts[i]) if 
+         -i < len(starts) else "", "end": _clean(ends[i]) if i < len(ends
+         -) else ""})                                                    
+      55 +                                 "start": _clean(starts[i]) if 
+         +i < len(starts) else "", "end": _clean(ends[i]) if i < len(ends
+         +) else "",                                                     
+      56 +                                 "bullets": bl[i * 3 : i * 3 + 
+         +3]})                                                           
+      57              insts, degs, years = _lst(r["educational_institutio
+          n_name"]), _lst(r["degree_names"]), _lst(r["passing_years"])
+      58              fields, res = _lst(r["major_field_of_studies"]), _l
+          st(r["educational_results"])
+      59              for i, ins in enumerate(insts):
+
+● Write(tools\synth\render.py)
+  ⎿  Wrote 208 lines to tools\synth\render.py
+       1 """Render structured synthetic resumes to PDF with Chromium (Pla
+       2 
+       3     uv run python -m tools.synth.render --n 1200 --seed 0       
+       4 
+       5 Per resume the *printed* strings (title, company, location, date
+       6 labels never depend on re-parsing. Randomised per resume: date f
+         ormat, range separator, "Present" word, section order,
+         abbreviation vs full name, ordering of skills."""
+       8 
+      10 import html
+     … +283 lines (ctrl+o to expand)
+
+  Read 2 files, ran 4 shell commands (ctrl+o to expand)
+
+● While the CUDA torch install finishes downloading, I'll build the
+  training-data builder, using blocks from the real pipeline labeled with
+  synthetic ground truth and LiveCareer tags. · summary
+
+  Searched for 2 patterns, ran 1 shell command (ctrl+o to expand)
+
+● Background command "Read aligner main to add train-pool options" completed
+(exit code 0)
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Two background jobs are running (the LiveCareer training pool alignment and
+  the CUDA torch download). I'm now adding placeholder cleaning to the block
+  text and writing the training-data builder.
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● Update(src\rx3\fields\gliner\__init__.py)
+  ⎿  Error editing file
+● Update(src\rx3\fields\gliner\__init__.py)
+  ⎿  Added 1 line, removed 1 line
+      56  
+      57  def clean_line(t: str) -> str:
+      58      """LiveCareer anonymisation leftovers (placeholder names, a
+           mojibake dash) are not text a real resume has."""
+      59 -    return re.sub(r"\s{2,}", " ", _JUNK.sub(" ", t.replace("   
+         - ", " | "))).strip(" |")                                       
+      59 +    return re.sub(r"\s{2,}", " ", _JUNK.sub(" ", t.replace("\t"
+         +, " | "))).strip(" |")                                         
+      60  
+      61  
+      62  def block_text(entry) -> tuple[str, list[tuple[int, str]]]:
+
+● Update(src\rx3\fields\gliner\__init__.py)
+  ⎿  Added 1 line, removed 2 lines
+      71          pos += len(t) + 1
+      72      if not parts:
+      73          return "", [(0, entry.head[0].id)]
+      74 -    return "                                                   
+      75 -".join(parts), starts                                          
+      74 +    return "\n".join(parts), starts                            
+      75  
+      76  
+      77  def _line_ids(starts: list[tuple[int, str]], a: int, b: int) ->
+           list[str]:
+
+  Ran 4 shell commands (ctrl+o to expand)
+
+● Write(tools\build_gliner_data.py)
+  ⎿  Wrote 168 lines to tools\build_gliner_data.py
+       1 """Build GLiNER2 fine-tuning data from entry blocks (PROMPT.md §
+       2 
+       3     uv run python tools/build_gliner_data.py [--max-synth 8000] 
+       4 
+         entry head lines through `block_text` (cells joined with
+       6 ' | ', LiveCareer placeholders removed). Labels:
+         hed to the block by which field values occur in it;
+       8   * LiveCareer (data/livecareer/aligned_train.jsonl, disjoint fr
+       9     degree / program from the HTML tags, matched through the ali
+      10     source,
+     … +202 lines (ctrl+o to expand)
+
+  Searched for 1 pattern, ran 5 shell commands (ctrl+o to expand)
+
+● Write(tools\train_gliner_lora.py)
+  ⎿  Wrote 60 lines to tools\train_gliner_lora.py
+       1 """LoRA fine-tune of GLiNER2.5 on entry blocks (PROMPT.md §5 Sta
+       2 
+       3     uv run python tools/train_gliner_lora.py [--epochs 3] [--bat
+       4 
+       5 Local RTX 2050 (4 GB): LoRA r=8 on the encoder + task heads, fp1
+       6 data/train/{train,dev,dev_lc}.jsonl (tools/build_gliner_data.py)
+         ; writes the adapter to <out>/best (gitignored).
+         hen `python -m eval.fields_eval --extractor lora+norm`."""
+       8 
+      10 import json
+     … +72 lines (ctrl+o to expand)
+
+  Listed 1 directory, ran 2 shell commands (ctrl+o to expand)
+
+● Monitor(Wait for the data builder to finish)
+  ⎿  Monitor started · task b595g5pbl · timeout 1500s
+
+  Ran 4 shell commands (ctrl+o to expand)
+
+● Write(tools\gold_fill.py)
+  ⎿  Wrote 72 lines to tools\gold_fill.py
+       1 """Helpers for hand-drafting gold entries (PROMPT.md §4.1: the a
+       2 offline, no hosted-LLM output). Each constructor fills schema de
+         faults so a drafted resume is just the facts that were
+       3 read; `save()` merges them into data/gold/drafts/<id>.json, take
+       4 the file `drafted` (never `verified`: only the user verifies) an
+         d keeps a note on judgement calls.
+       6     from gold_fill import W, E, P, C, A, SK, save
+       7 """
+       8 
+      10 from pathlib import Path
+     … +93 lines (ctrl+o to expand)
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Update(tools\gold_fill.py)
+  ⎿  Added 3 lines, removed 5 lines
+      59      p.update({"summary": summary, "workHistory": list(work), "e
+          ducation": list(edu), "skills": list(skills), "projects": list(
+          projects),
+      60                "certifications": list(certs), "awards": list(awa
+          rds), "languages": list(langs), "affiliations": list(affs),
+      61                "interests": [{"activity": i, "description": "", 
+          "commitmentMetric": None} for i in interests], "publications": 
+          list(pubs)})
+      62 -    h = hdr.get(rid) or hdr.get(d["source_file"])              
+      62 +    h = hdr.get(Path(d["source_file"]).stem)                   
+      63      if isinstance(h, dict):
+      64          m = p["metaDetails"]
+      65          m.update({k: h[k] for k in ("name", "phone_no", "email"
+          , "github_profile", "linkedin") if k in h})
+      66 -        if isinstance(h.get("address"), dict):                 
+      67 -            m["address"].update(h["address"])                  
+      68 -        if h.get("extra_links"):                               
+      69 -            m["extra_links"] = h["extra_links"]                
+      66 +        m["address"].update({"city": h.get("city", ""), "state"
+         +: h.get("state"), "country": h.get("country", ""), "postal_code
+         +": h.get("postal_code")})                                      
+      67 +        m["extra_links"] = [x for x in h.get("extra", []) if is
+         +instance(x, dict) and "link" in x]                             
+      68      d["status"] = "drafted"
+      69      d["drafting_notes"] = ("Hand-drafted by Claude from data/go
+          ld/raw text (not LLM-pipeline output); UNVERIFIED. " + note).st
+          rip()
+      70      path.write_text(json.dumps(d, ensure_ascii=False, indent=1)
+          , encoding="utf-8")
+
+● Monitor(Re-arm wait for the data builder)
+  ⎿  Monitor started · task bbvg1rc0n · timeout 1500s
+
+  Made 2 scratchpad edits +123, ran 6 shell commands (ctrl+o to expand)
+
+● Monitor "Wait for the data builder to finish" stream ended
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Monitor "Re-arm wait for the data builder" stream ended
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Background command "Install CUDA torch into the project venv" completed (exit
+code 0)
+
+  Made 6 scratchpad edits +372, read 1 file, ran 16 shell commands (ctrl+o to expand)
+
+● Monitor(Wait for the smoke training to finish)
+  ⎿  Monitor started · task b9je91b8r · timeout 600s
+
+  Made 1 scratchpad edit +34, ran 4 shell commands (ctrl+o to expand)
+
+● Monitor "Wait for the smoke training to finish" stream ended
+
+  Made 2 scratchpad edits +149, searched for 2 patterns, ran 16 shell commands (ctrl+o to expand)
+
+● Monitor(Wait for the torch wheel download to finish)
+  ⎿  Monitor started · task btebg1oxh · timeout 1800s
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Gold drafting is done: all 32 AAA resumes now have hand-drafted, unverified
+  gold (old orphan drafts archived). Waiting on the CUDA torch wheel download to
+  finish, about 10 minutes, then I start the LoRA training.
+
+✻ Brewed for 44m 46s · done Monday 1:31 PM
+
+※ recap: We're finishing Stage 10 of resume-extractor-v3: synthetic data, gold drafts and eval baselines are done, and the CUDA torch wheel is still downloading. Next action: install it, then start the LoRA fine-tune on your GPU. (disable recaps in /config)
+
+● Monitor "Wait for the torch wheel download to finish" stream ended
+  Ran 5 shell commands (ctrl+o to expand)
+
+● Torch with CUDA now works in the venv (RTX 2050 detected; needed NumPy 1.26
+  and a renamed OpenMP DLL as a workaround). Running a short GPU training smoke
+  test to confirm speed and memory.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● GPU training runs at about 15 examples/s, so the full run takes roughly 10
+  minutes per epoch. Starting the real training now (3 epochs, 7,972 examples).
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Monitor(Wait for training to finish)
+  ⎿  Monitor started · task baagnxatj · timeout 1800s
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Write(eval\blocks_eval.py)
+  ⎿  Wrote 105 lines to eval\blocks_eval.py
+      1 """Block-level field accuracy of GLiNER zero-shot vs the LoRA ada
+      2 
+      3     uv run python -m eval.blocks_eval [--adapter models/gliner-lo
+        ra/best] [--split test_synth] [--device cuda]
+      5 `test_synth` = synthetic template families never seen in training
+         (jake, table_docx, banner); `dev_lc` = LiveCareer blocks from
+        reads the same block text the pipeline would send and the
+      7 prediction is compared with the label string (exact match after w
+        hitespace/case folding). Reports precision / recall / F1 per
+        , if given, the adapt
+     … +120 lines (ctrl+o to expand)
+
+● Training is running (about 26 minutes). I'll evaluate as soon as it finishes:
+  block-level accuracy on held-out template families, then the LiveCareer, AAA
+  and gold-32 comparisons.
+
+✻ Baked for 7m 40s · done Monday 1:49 PM
+
+● Monitor event: "Wait for training to finish"
+  Traceback (most recent call last):
+  RuntimeError: CUDA error: out of memory
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Monitor "Wait for training to finish" stream ended
+
+  Listed 1 directory, ran 4 shell commands (ctrl+o to expand)
+
+● Monitor(Wait for the retrained run)
+  ⎿  Monitor started · task bz9qv5bii · timeout 1800s
+
+● Training restarted with batch 4 and the oversized blocks removed; it should
+  take about 25 minutes. I'll start the evaluation as soon as it completes.
+
+✻ Baked for 2m 7s · done Monday 1:53 PM
+
+※ recap: We're completing Stage 10 of resume-extractor-v3 by fine-tuning GLiNER with LoRA on your GPU; training is running now and takes about 25 minutes. Next I'll evaluate it against zero-shot and rules on the 32 gold resumes. (disable recaps in /config)
+
+● Monitor "Wait for the retrained run" stream ended
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Monitor(Wait for the bf16 training run)
+  ⎿  Monitor started · task b9hu7f6zn · timeout 1800s
+
+  Searched for 2 patterns, read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● Monitor "Wait for the bf16 training run" stream ended
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Monitor(Wait for the fp16 training run)
+  ⎿  Monitor started · task ba405j1mc · timeout 1800s
+
+● Training is running again (fp16, skipping the roughly 1% of micro-batches that
+  give a non-finite loss). About 20 minutes remain, then evaluation.
+
+✻ Brewed for 7m 17s · done Monday 2:17 PM
+
+※ recap: Goal: finish Stage 10 of resume-extractor-v3 by fine-tuning GLiNER with LoRA. A LoRA training run is going on your GPU, and gold is now drafted for all 32 resumes. Next I'll evaluate the adapter once training ends, in about 20 minutes. (disable recaps in /config)
+
+● Monitor event: "Wait for the fp16 training run"
+  [Monitor expired after 30m with no events delivered. Re-arm it if you still 
+  need the watch — and widen the filter if silence was unexpected.]
+
+  Listed 1 directory (ctrl+o to expand)
+
+● Monitor(Wait for training to finish)
+  ⎿  Monitor started · task bbakmxscg · timeout 900s
+
+● Training is at 94%, so it should finish within minutes. Then the block-level
+  evaluation on held-out template families.
+
+✻ Sautéed for 19s · done Monday 2:47 PM
+
+● Monitor "Wait for training to finish" stream ended
+● Training finished in 32.8 minutes, with eval loss falling each epoch (155.8,
+  145.4, 142.4). Now evaluating on the held-out template families.
+
+  Listed 1 directory, ran 6 shell commands (ctrl+o to expand)
+
+● The adapter now beats rules on work (0.80 vs 0.59 F1) and education (0.83 vs
+  0.76), but remaining work errors mostly stem from a stacked layout my
+  synthetic data doesn't cover. I'm adding two generic families for that layout
+  and retraining once more. · summary
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Monitor(Wait for the data rebuild)
+  ⎿  Monitor started · task b321x8w03 · timeout 1500s
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Data rebuild is running; training starts right after it finishes.
+
+✻ Cogitated for 9m 40s · done Monday 2:59 PM
+
+● Monitor "Wait for the data rebuild" stream ended
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Monitor(Wait for the v2 training run)
+  ⎿  Monitor started · task bshjofdcp · timeout 1800s
+
+● Second training run is in progress (about 35–40 minutes). When it finishes
+  I'll compare it against the first adapter on held-out families, LiveCareer and
+  the gold, and keep the better one.
+
+✻ Cogitated for 1m 55s · done Monday 3:03 PM
+
+※ recap: I'm finishing Stage 10 of the resume extractor: a fine-tuned GLiNER adapter, 32 gold resumes drafted, and the evals. A second training run with new layout families is going now; next I compare it with the first adapter and keep the better one.
+
+● Monitor event: "Wait for the v2 training run"
+  [Monitor expired after 30m with no events delivered. Re-arm it if you still 
+  need the watch — and widen the filter if silence was unexpected.]
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Monitor(Re-arm the wait for v2 training)
+  ⎿  Monitor started · task bv9y0tpwd · timeout 1800s
+
+● v2 training is about halfway (epoch 1.4 of 3). Waiting for it to finish.
+
+✻ Sautéed for 27s · done Monday 3:40 PM
+
+● Monitor event: "Re-arm the wait for v2 training"
+  [Monitor expired after 30m with no events delivered. Re-arm it if you still 
+  need the watch — and widen the filter if silence was unexpected.]
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ contiune                                                                      
+
+● Monitor(Wait for v2 training to finish)
+  ⎿  Monitor started · task b7a3l0pkm · timeout 900s
+
+● Continuing: v2 training is at 85% and finishes in a few minutes, then I run
+  the comparisons.
+
+✻ Worked for 1h 56m 33s · done Monday 6:16 PM
+
+※ recap: Goal: finish Stage 10 of resume-extractor-v3 by fine-tuning GLiNER and evaluating on the 32-resume gold. The first adapter beat rules; a second training run with extra template families is at 85%. Next: compare it to the first on held-out data and ship the better adapter.
+
+● Monitor "Wait for v2 training to finish" stream ended
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Monitor(Wait for the data rebuild to finish)
+  ⎿  Monitor started · task bwcgy10cg · timeout 1200s
+
+● Rebuilding the training data without the unhelpful extra families so it
+  matches the shipped adapter. After that: the full-pipeline check
+  (hallucination, determinism, latency) with the adapter on CPU.
+
+✻ Brewed for 7m 35s · done Monday 6:31 PM
+
+● Monitor "Wait for the data rebuild to finish" stream ended
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Update(PROGRESS.md)
+  ⎿  Added 34 lines
+      420    suggests a fine-tune would help most on title/degree and cou
+           ld replace the
+      421    0.9 cut-off.
+      422  
+      423 +### Stage 10 (part 3) — synthetic renderer, LoRA fine-tune, go
+          +ld-32 (Stage 10 closed)                                       
+      424 +                                                              
+      425 +- **Gold**: all 32 current AAA PDFs now have a hand-drafted go
+          +ld entry (`data/gold/drafts/*.json`, `status: drafted`, **unve
+          +rified**,                                                     
+      426 +  drafted by me from the raw text, not from LLM JSONs; helpers
+          + `tools/gold_fill.py`). Entries whose source PDF is gone from 
+      427 +  `resume-data/PDFs/AAA` (compressed/docx/renamed copies) are 
+          +`archived` (kept, not scored); `flowcv` stays a scaffold (no P
+          +DF).                                                          
+      428 +- **Synthetic renderer** (`tools/synth/`): 12 template familie
+          +s (single / two-column sidebars / banner / table / LaTeX-like 
+          +/                                                             
+      429 +  Indian-student / timeline / stacked plain / boxed ...), 1,80
+          +0 resumes rendered through Chromium with exact ground truth,  
+      430 +  randomised fonts, date formats, section order, headings, deg
+          +ree names. Splits by family: 3 test families (jake, table_docx
+          +,                                                             
+      431 +  banner) and 2 dev families never train. Two extra tagline-st
+          +yle families exist but are excluded by default (see below).   
+      432 +- **Training data** (`tools/build_gliner_data.py`): the rules 
+          +stage's entry blocks (same text inference sees) labelled from 
+          +the                                                           
+      433 +  printed truth (synthetic) or the HTML tags (LiveCareer resum
+          +es disjoint from the eval pool, `aligned_train.jsonl`): 7,965 
+      434 +  train blocks (5,323 work / 2,642 education), 1,101 dev, 1,89
+          +9 test (held-out families), 255 LiveCareer dev.               
+      435 +- **Fine-tune**: LoRA r=8 on encoder + task heads, local RTX 2
+          +050 (4 GB), CUDA torch 2.4.0+cu124. Hit and fixed: GPU OOM fro
+          +m one                                                         
+      436 +  5,000-char outlier block (blocks capped at 600 chars), non-f
+          +inite losses (bf16 made nearly every micro-batch non-finite;  
+      437 +  fp16 + skipping the ~1% non-finite micro-batches works). 3 e
+          +pochs, 1,494 steps, 33 min; eval loss 155.8 -> 145.4 -> 142.4.
+      438 +  Adapter (6.9 MB) shipped at `models/adapters/rx3-entry-lora/
+          +` (versioned, checksum in `models/MANIFEST.md`).              
+      439 +- **Results** (shipped adapter v1, cut-off 0.7):              
+      440 +  - Held-out template families (1,899 blocks), F1 zero-shot ->
+          + LoRA: title 71.4 -> **97.0**, company 83.3 -> **94.2**, locat
+          +ion                                                           
+      441 +    52.2 -> **89.1**, institution 78.0 -> **97.0**, degree 67.
+          +3 -> **96.9**, field of study 88.7 -> **95.4**.               
+      442 +  - LiveCareer dev blocks: institution F1 73.3 -> **90.3**, de
+          +gree 69.7 -> 85.1, field 51.8 -> 83.3 (title recall stays low,
+          + 43 %                                                         
+      443 +    at 83 % precision, because LiveCareer titles often sit out
+          +side the head block; the rules title is kept unless the model 
+          +is >= 0.7).                                                   
+      444 +  - Fields vs rules (LiveCareer n=100 + AAA vs LLM JSON): comp
+          +any 57.6 -> **86.3**, AAA title 78.0 -> **89.0**, location 8.3
+          + -> **90.3**,                                                 
+      445 +    LiveCareer school 53.9 -> **90.0**, degree 83.6 -> **94.1*
+          +*; cost: LiveCareer work-title recall 83.5 -> 80.5 (-3 points,
+          + proxy labels).                                               
+      446 +  - **Gold-32 entity F1** (rules -> zero-shot GLiNER -> LoRA):
+          + work 0.593 -> 0.788 -> **0.801**, education 0.755 -> 0.818 ->
+          + **0.827**,                                                   
+      447 +    projects 0.755 (rules tweak: plain-style titles + Courier 
+          +"o" bullets, was 0.723), certifications 0.677, awards 0.635; s
+          +kills F1 0.726.                                               
+      448 +- **Targets (entity F1 >= 0.90) are NOT met on gold-32** (dev 
+          +numbers on unverified gold). Gap by section: work 0.80, educat
+          +ion 0.83,                                                     
+      449 +  projects 0.76 (entry boundaries of plain-style resumes; GLiN
+          +ER is not applied to projects), certifications 0.68 and awards
+          + 0.64                                                         
+      450 +  (no model; keyword rules only). Remaining work errors: stack
+          +ed "company / tagline / title / dates" templates, company stri
+          +ngs with                                                      
+      451 +  a parenthetical, "Google | team" style rows. Next options: a
+          +pply GLiNER/LoRA to projects, certifications and awards; verif
+          +y the gold                                                    
+      452 +  (Checkpoint 4B) so the gap is measured against truth; train 
+          +on a larger and more varied real-resume set.                  
+      453 +- **A second adapter (v2) with two extra tagline-style familie
+          +s scored worse** (gold work F1 0.776, held-out location F1 66 
+          +vs 89)                                                        
+      454 +  and was dropped; those families are excluded by default (`--
+          +include-extra`).                                              
+      455 +- **Redo with more data**: README section "Rebuilding the Stag
+          +e 10 data and the GLiNER adapter" (about 45 min end to end on 
+          +this GPU).                                                    
+      456 +                                                              
+      457  ### Stage 13 — Small-LM experiment (done at the user's request
+           ; NOT shipped)
+      458  
+      459  - `src/rx3/fields/slm/`: Qwen3-0.6B / 1.7B (`unsloth/*-GGUF` Q
+           4_K_M, ~0.4 / 1.1
+  Read 1 file (ctrl+o to expand)
+
+● Monitor(Wait for the pipeline eval with the adapter)
+  ⎿  Monitor started · task bvabs5ttj · timeout 1500s
+
+● Docs for Stage 10 part 3 are written. Waiting for the full-pipeline check with
+  the adapter (hallucination, determinism, CPU latency), then I'll stage
+  everything and give you the commit message.
+
+✻ Worked for 10m 48s · done Monday 6:44 PM
+
+※ recap: Goal: finish Stage 10 of resume-extractor-v3; the LoRA adapter is trained, gold drafted and docs written, and I'm waiting on a final pipeline check (hallucination, determinism, CPU latency). Next I'll stage everything and give you the commit message.
+
+● Background command "Full pipeline eval with the adapter on CPU (2 threads)"
+completed (exit code 0)
+
+  Searched for 1 pattern, ran 18 shell commands (ctrl+o to expand)
+
+● Monitor(Wait for the CPU pipeline eval report)
+  ⎿  Monitor started · task b0h5ul4s8 · timeout 1800s
+
+● Fixed the CPU inference problem: the adapter is now merged into the base
+  weights, and a block that gives NaN scores falls back to the rules instead of
+  crashing. Re-running the full CPU pipeline check (crashes, hallucination,
+  determinism, latency).
+
+✻ Sautéed for 13m 10s · done Monday 7:04 PM
+
+※ recap: Goal: finish Stage 10 of resume-extractor-v3, now with a fine-tuned GLiNER adapter and 32 drafted gold resumes. I'm checking the full CPU pipeline run for crashes, determinism and latency; next I'll stage everything and give you the commit message.
+
+● Monitor event: "Wait for the pipeline eval with the adapter"
+  [Monitor expired after 25m with no events delivered. Re-arm it if you still 
+  need the watch — and widen the filter if silence was unexpected.]
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Monitor(Wait for the pipeline eval summary)
+  ⎿  Monitor started · task b3z5m7sod · timeout 1800s
+
+● Still running the CPU pipeline eval; I'll report its numbers as soon as it
+  completes.
+
+✻ Baked for 19s · done Monday 7:10 PM
+
+※ recap: We're finishing Stage 10 of the resume extractor: the fine-tuned entry-field model is trained and shipped, and I'm now waiting on a final CPU pipeline check for crashes, hallucination, determinism and latency. Next I'll stage everything and give you the commit message.
+
+● Monitor "Wait for the CPU pipeline eval report" stream ended
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Monitor "Wait for the pipeline eval summary" stream ended
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Background command "Check training data fields and torch install progress"
+completed (exit code 0)
+
+● Found and killed a stray Python process that had been burning a CPU core for
+  hours; it was distorting my latency and determinism measurements. Re-running
+  the CPU probe on a clean machine.
+
+  Ran 5 shell commands (ctrl+o to expand)
+
+● Monitor(Wait for the final pipeline eval)
+  ⎿  Monitor started · task bw7x6cjcz · timeout 1800s
+
+● Switched the venv back to CPU torch (production-like; the multi-threaded NaN
+  and non-determinism were artifacts of my CUDA-wheel workaround). The final
+  full-pipeline check is running now.
+
+✻ Baked for 18m 38s · done Monday 7:34 PM
+
+※ recap: Goal: finish Stage 10 of resume-extractor-v3 with the fine-tuned GLiNER adapter and 32 hand-drafted gold resumes. Right now I'm waiting for the final CPU pipeline check (crashes, determinism, latency); next I'll write up results, stage files, and give you the commit message.
+
+● Monitor "Wait for the final pipeline eval" stream ended
+
+  Ran 5 shell commands (ctrl+o to expand)
+
+● Stage 10 is now closed and staged, not committed. The entity F1 target of ≥
+  0.90 is not met on the 32-resume gold, and that gold is my own unverified
+  draft. pytest -q passes 83/83.
+
+  What I did
+  - Gold: all 32 current AAA resumes now have a hand-drafted gold entry, written
+    from the resume text, not from LLM output. Eight older drafts whose PDFs
+    are gone are archived, and the FlowCV one stays empty (no PDF).
+  - Synthetic renderer (Chromium): 12 template families, 1,800 resumes with
+    exact ground truth. Three families were held out of training for testing.
+  - Fine-tune: LoRA on GLiNER2.5 (the model for the work and education fields)
+    on your RTX 2050, 33 minutes. The 6.9 MB adapter is committed at
+    models/adapters/rx3-entry-lora/. The big files (CUDA wheel, GGUF models,
+    rendered PDFs, training data) are in .gitignore.
+
+  Results
+
+  ┌─────────────────────┬──────────────────────┬────────────────────────────┐
+  │        Check        │        Before        │      With the adapter      │
+  ├─────────────────────┼──────────────────────┼────────────────────────────┤
+  │                     │ title 71, company    │                            │
+  │ Held-out template   │ 83, location 52,     │ 97, 94, 89, 97, 97         │
+  │ families, F1        │ institution 78,      │                            │
+  │                     │ degree 67            │                            │
+  ├─────────────────────┼──────────────────────┼────────────────────────────┤
+  │ Gold-32 work entity │ rules 0.59           │                            │
+  │  F1                 │ (zero-shot GLiNER    │ 0.80                       │
+  │                     │ 0.79)                │                            │
+  ├─────────────────────┼──────────────────────┼────────────────────────────┤
+  │ Gold-32 education   │ rules 0.76           │                            │
+  │ entity F1           │ (zero-shot GLiNER    │ 0.83                       │
+  │                     │ 0.82)                │                            │
+  ├─────────────────────┼──────────────────────┼────────────────────────────┤
+  │ Gold-32 projects /  │                      │ 0.76 / 0.68 / 0.64 (the    │
+  │ certifications /    │ 0.72 / 0.68 / 0.64   │ adapter doesn't touch      │
+  │ awards F1           │                      │ certifications and awards) │
+  ├─────────────────────┼──────────────────────┼────────────────────────────┤
+  │                     │                      │ 0 crashes, schema 100%,    │
+  │ Full pipeline on    │                      │ hallucination 0.15%,       │
+  │ CPU (128 resumes)   │                      │ byte-identical output      │
+  │                     │                      │ across runs                │
+  └─────────────────────┴──────────────────────┴────────────────────────────┘
+
+  Gap and next steps
+  - Remaining work errors are stacked "company / tagline / title / dates"
+    layouts and similar. Two extra tagline-style template families did not help
+    (gold work F1 dropped to 0.776), so I left them out by default.
+  - The next steps with the most effect are applying the model to projects,
+    certifications and awards, and verifying the gold.
+
+  For you to decide
+  - Latency: GLiNER adds about 1 s per resume (whole pipeline p50 1.0 s, p95 3.5
+    s). That misses the ~600 ms budget, so it stays opt-in
+    (RX3_ENABLE_GLINER=1).
+  - LiveCareer title recall: it fell 3 points (83.5 → 80.5) while the
+    real-resume title agreement rose 11 points. The PROMPT asks for your OK on a
+    drop of more than 1 point. Do you accept the trade-off?
+  - Gold verification (Checkpoint 4B): the F1 numbers stay dev numbers until you
+    review the drafts.
+
+  Problems I hit and fixed
+  - Training failures: a 5,000-character outlier block ran the GPU out of memory
+    (blocks are now capped at 600 characters), and bf16 broke the loss, so fp16
+    plus skipping bad micro-batches is used.
+  - Stray process: a leftover Python process had been burning a core for hours
+    and inflated my first latency numbers. I killed it and re-measured.
+  - Inference crashes: a few blocks gave NaN scores and crashed 17 of 224
+    resumes in one run. They now fall back to the rules.
+  - Torch setup: the venv is back on CPU torch. Retraining needs the CUDA wheel
+    and a Windows DLL workaround; both are in DECISIONS.md and the README.
+
+  Redoing it with more resumes: the README has a step-by-step section (about 45
+  minutes end to end). For non-LiveCareer resumes there are no labels, so those
+  would go into gold instead.
+
+  arch-diag.md in the repo is not mine, so I left it untracked.
+
+  Commit message:
+  Stage 10 complete: gold-32, synthetic renderer, LoRA-fine-tuned GLiNER
+
+  - gold: hand-drafted entries for all 32 AAA PDFs (unverified), archive of 
+  orphans
+  - tools/synth: 12-family Chromium renderer with exact ground truth; 
+  build_gliner_data, train_gliner_lora
+  - shipped adapter models/adapters/rx3-entry-lora (7 MB), cut-off 0.7, merged 
+  at load, NaN-safe
+  - rules: Courier-o bullets, plain-style project titles
+  - eval: blocks_eval, gold-32 reports; docs + README rebuild steps; large 
+  artefacts gitignored
+
+  Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+✻ Cogitated for 1m 48s · done Monday 7:41 PM
+
+※ recap: We're building resume-extractor-v3, and Stage 10 (fine-tuned GLiNER for work and education fields) is finished and staged, not committed. Next, you commit it and tell me whether to start Stage 14 (API and Docker), and say whether the LiveCareer title-recall drop is acceptable.
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ so stage 10 is now complete right?                                            
+
+● Stage 10 is finished as a build, but it did not hit its accuracy targets.
+
+  Done
+  - Synthetic renderer, training-data builders, LoRA fine-tune, and the shipped
+    adapter.
+  - The combine-by-eval choice (GLiNER overrides the rules at confidence 0.7).
+  - A hand-drafted gold set covering all 32 resumes.
+
+  Not reached
+  - Accuracy target: the exit check wants entity F1 ≥ 0.90. On the gold I got
+    work 0.80, education 0.83 and projects 0.76. The PROMPT lets the stage close
+    with "a clear report of the gap plus next options", and PROGRESS.md and
+    DECISIONS.md have that report. So it's closed on that clause, not on meeting
+    the target.
+  - Gold quality: the gold is my draft, unverified, so all of these are dev
+    numbers.
+  - Coverage: GLiNER covers only work and education. Projects, certifications
+    and awards still use rules only. That's the biggest remaining gap.
+  - Latency: the stage takes about 1 s per resume against a ~600 ms budget, so
+    it stays opt-in.
+  - Skipped: the token classifier (10B), because the remaining errors aren't a
+    token-labelling problem.
+
+  If you want to raise the numbers before Stage 14, I'd do two things: extend
+  the model to projects, certifications and awards, and you verify the gold so I
+  know what the real gap is. Otherwise I can move on to Stage 14 as is.
+
+✻ Cogitated for 8s · done Monday 8:04 PM
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ targets will be reached later -- implement from what last stage is done -     
+  maybe 14 needs to implemented now right - do it                               
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Write(src\rx3\api.py)
+  ⎿  Wrote 154 lines to src\rx3\api.py
+       1 """FastAPI service (PROMPT.md §5 Stage 14).
+       3     uvicorn rx3.api:app --host 0.0.0.0 --port 7860
+       4 
+         meData JSON (+ legacy `_meta` for ifind's normaliseHFOutput).
+       6                ?debug=true adds `_debug`, ?confidence=true adds 
+       7 GET  /, /health (status, version, git sha, models loaded, startu
+         p time), /version.
+       9 Limits (env): RX3_MAX_BYTES (10 MB), RX3_MAX_PAGES (5), RX3_TIME
+         OUT_S (25, keep < 30). One extraction runs at a time (the models
+         are loaded and warmed up once at startup."""
+     … +184 lines (ctrl+o to expand)
+
+● Write(tests\test_api.py)
+  ⎿  Wrote 65 lines to tests\test_api.py
+      1 import io
+      2 import sys
+      3 from pathlib import Path
+      4 
+      5 import pymupdf
+      6 import pytest
+      7 from fastapi.testclient import TestClient
+      8 
+      9 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "
+        src"))
+     … +75 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Write(eval\api_perf.py)
+  ⎿  Wrote 86 lines to eval\api_perf.py
+       1 """Cold-start and request latency of the real HTTP service (uvic
+       2 
+       3     uv run python -m eval.api_perf [--n 24] [--threads 2] [--url
+       4 
+       5 Without --url it starts `uvicorn rx3.api:app` as a subprocess an
+       6 (all AAA first, then LiveCareer) one after another and reports p
+         50 / p95 wall time per request and the peak RSS of the server.
+         ad (then there is no RSS)."""
+       8 
+      10 import os
+     … +98 lines (ctrl+o to expand)
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● The API works end to end (cold start 71 s, p50 1.6 s per request on this
+  machine). Now writing the Dockerfile and regenerating uv.lock so the image
+  gets CPU-only torch on Linux.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Write(scripts\fetch_models.py)
+  ⎿  Wrote 44 lines to scripts\fetch_models.py
+       1 """Download the pinned GLiNER2.5 base weights into the Hugging F
+         ace cache and verify every checksum in models/MODEL_CHECKSUMS.tx
+       2 
+       3 Used by the Dockerfile at build time (and handy locally): fails 
+         the build if the model or the adapter does not match.
+       5     python scripts/fetch_models.py
+       6 """
+       7 
+       9 import sys
+      10 from pathlib import Path
+     … +43 lines (ctrl+o to expand)
+
+● Write(Dockerfile)
+  ⎿  Added 37 lines, removed 3 lines
+       1 -# Placeholder — filled in at Stage 14 (API service, Docker, HF 
+         -Space).                                                        
+       2 -# Target: python:3.11-slim, uv sync --frozen --no-dev, non-root
+         - user, port 7860.                                              
+       1 +# resume-extractor-v3 service (PROMPT.md Stage 14). Build:  doc
+         +ker build -t rx3 --build-arg GIT_SHA=$(git rev-parse --short HE
+         +AD) .                                                          
+       2 +# Run:   docker run --rm --cpus=2 --memory=16g -p 7860:7860 rx3
+         +     (HF Space: port 7860, 2 vCPU / 16 GB)                     
+       3  FROM python:3.11-slim
+       4 +                                                               
+       5 +ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 UV_COMPILE_BYT
+         +ECODE=1 UV_LINK_MODE=copy \                                    
+       6 +    HF_HOME=/opt/hf TOKENIZERS_PARALLELISM=false OMP_NUM_THREAD
+         +S=2 RX3_TORCH_THREADS=2 RX3_ENABLE_GLINER=1 \                  
+       7 +    PATH=/app/.venv/bin:$PATH                                  
+       8 +                                                               
+       9 +# tesseract: OCR fallback for scanned PDFs. libgomp: OpenMP run
+         +time for torch. (LibreOffice for legacy .doc is NOT installed: 
+      10 +# it adds ~500 MB; without it .doc uploads get a clear 415. Add
+         + `libreoffice-writer` here if you want .doc support.)          
+      11 +RUN apt-get update && apt-get install -y --no-install-recommend
+         +s tesseract-ocr libgomp1 \                                     
+      12 +    && rm -rf /var/lib/apt/lists/*                             
+      13 +COPY --from=ghcr.io/astral-sh/uv:0.12.22 /uv /bin/uv           
+      14  WORKDIR /app
+      15 +                                                               
+      16 +# 1) dependencies only (cached layer): CPU torch on Linux comes
+         + from the pytorch-cpu index pinned in uv.lock                  
+      17 +COPY pyproject.toml uv.lock ./                                 
+      18 +RUN uv sync --frozen --no-dev --no-install-project --extra glin
+         +er                                                             
+      19 +                                                               
+      20 +# 2) code, schema types, the versioned LoRA adapter            
+      21 +COPY src ./src                                                 
+      22 +COPY types ./types                                             
+      23 +COPY scripts ./scripts                                         
+      24 +COPY models/adapters ./models/adapters                         
+      25 +COPY models/MODEL_CHECKSUMS.txt ./models/MODEL_CHECKSUMS.txt   
+      26 +RUN uv sync --frozen --no-dev --extra gliner                   
+      27 +                                                               
+      28 +# 3) bake the pinned base model into the image and verify check
+         +sums (build fails on a mismatch); run offline afterwards       
+      29 +RUN python scripts/fetch_models.py                             
+      30 +ENV HF_HUB_OFFLINE=1                                           
+      31 +                                                               
+      32 +ARG GIT_SHA=unknown                                            
+      33 +ENV RX3_GIT_SHA=$GIT_SHA                                       
+      34 +                                                               
+      35 +RUN useradd -m -u 1000 app && chown -R app:app /app /opt/hf    
+      36 +USER app                                                       
+      37  EXPOSE 7860
+       6 -CMD ["python", "-c", "print('resume-extractor-v3: not implement
+         -ed yet, see PROMPT.md Stage 14')"]                             
+      38 +HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --r
+         +etries=3 \                                                     
+      39 +    CMD python -c "import urllib.request,sys; sys.exit(0 if url
+         +lib.request.urlopen('http://127.0.0.1:7860/health', timeout=4).
+         +status == 200 else 1)"                                         
+      40 +CMD ["uvicorn", "rx3.api:app", "--host", "0.0.0.0", "--port", "
+         +7860", "--workers", "1"]                                       
+
+  Searched for 1 pattern, ran 6 shell commands (ctrl+o to expand)
+
+● Stage 14 is built and staged, not committed. Nothing is pushed to a Hugging
+  Face Space, and the Docker image has never been built because Docker isn't
+  installed on this machine. pytest -q passes 87/87.
+
+  Built
+  - API: src/rx3/api.py.
+    - Endpoints: POST /extract takes a multipart file and accepts ?debug=true
+      and ?confidence=true. GET /, /health and /version are also there. /health
+      returns the version, git sha, models loaded and startup time.
+    - Limits: a file over 10 MB gets 413. A wrong file type, or a .doc when
+      LibreOffice is absent, gets 415. A corrupt file, a password-protected PDF,
+      or more than 5 pages gets 422. A request over 25 s gets 504.
+    - Startup: models load and warm up once when the service starts. One
+      extraction runs at a time; later requests wait.
+  - Docker image: The Dockerfile uses Python 3.11-slim with uv and the locked
+    dependencies, plus tesseract for scanned PDFs.
+    - It bakes in the base model, pinned to one revision and checked against a
+      sha256 at build time, and copies in the 7 MB adapter.
+    - It runs as a non-root user on port 7860 with a healthcheck, offline, with
+      GLiNER switched on.
+    - I regenerated uv.lock so Linux gets CPU-only torch and no CUDA packages.
+  - Hugging Face Space README: deploy/HF_SPACE_README.md, to be used as the
+    Space's README.md.
+  - Pipeline: I added the password and page-count pre-checks to it.
+
+  Measured locally (real uvicorn server, CPU, 2 threads, GLiNER and adapter on,
+  30 PDFs): p50 1.6 s, p95 2.9 s, no errors, 1.5 GB of memory. Cold start was 71
+  s on this machine, mostly loading the model; I expect it to be faster in the
+  image with the model baked in.
+
+  Not done
+  - Container check: the container eval with --cpus=2 --memory=16g is untested.
+    That is the first thing to run once you have Docker, or once the Space
+    builds.
+  - Checkpoint 14A: I won't push to a Space until you say go. Suggested name:
+    seudoe/resume-extractor-v3.
+  - Checkpoint 14B: after the push, you test the live Space with:
+    curl -X POST "$SPACE_URL/extract" -F "file=@resume.pdf" and curl 
+    "$SPACE_URL/health".
+
+  Defaults I chose, since your answers weren't captured
+  - _meta: the API returns both metaDetails and a legacy _meta object. ifind's
+    normaliseHFOutput ignores our metaDetails and rebuilds it from _meta, so
+    without it the current ifind would show empty name, email and phone.
+    Dropping it is a one-line change once Stage 15 updates ifind.
+  - GLiNER: it is on in the image (about +1 s per resume). Unset
+    RX3_ENABLE_GLINER for a rules-only service.
+  - LibreOffice: it isn't in the image, because it adds about 500 MB. Add
+    libreoffice-writer to the Dockerfile if you want .doc support.
+
+  Say if you want either default changed.
+
+  Commit message:
+  Stage 14: FastAPI service, Docker image, HF Space prep
+
+  - rx3.api: /extract (+ legacy _meta), /health, /version, limits (10 MB, 5 
+  pages, timeout), startup warm-up
+  - pipeline: password / page-count pre-checks (TooManyPages)
+  - Dockerfile + .dockerignore: CPU torch via uv.lock, pinned+verified model, 
+  adapter, non-root, port 7860
+  - scripts/fetch_models.py, models/MODEL_CHECKSUMS.txt, 
+  deploy/HF_SPACE_README.md
+  - eval/api_perf.py; tests/test_api.py; README run/deploy sections
+
+  Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+✻ Cooked for 7m 13s · done Monday 8:12 PM
+
+※ recap: We're building the LLM-free resume extractor, and Stage 14 (the API, Docker image and Hugging Face Space prep) is now built and staged. Next, please commit it and tell me whether I can push to a new Space for the live test.
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ next i.e. the last one                                                        
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● User answered Claude's questions:
+  ⎿  · Checkpoint 15A: may I edit ifind/lib/resumeParser.ts (the only file Stage
+     15 touches)? Changes: HF_SPACE_URL becomes env RESUME_EXTRACTOR_URL 
+     (default = the v3 Space URL, placeholder until you deploy it); 
+     normaliseHFOutput passes the response through when it already has 
+     metaDetails (so the legacy _meta is no longer needed); 60 s timeout 
+     unchanged. I will NOT remove the OpenAI path (it likely always fails: it 
+     sends a PDF as image_url data:application/pdf) - I only report it. → No, 
+     leave ifind untouched
+
+  Searched for 1 pattern, ran 8 shell commands (ctrl+o to expand)
+
+● Write(reports\FINAL.md)
+  ⎿  Wrote 114 lines to reports\FINAL.md
+       1 # resume-extractor-v3 — final report (Stage 16)
+       3 Date: 2026-10-05. **Read this first:** every accuracy number bel
+         ume-data/PDFs/AAA`)
+       4 that I drafted by hand from the resume text and that **nobody ha
+         n these same
+          The Space is not deployed, so latency / memory are from a local
+       6 from the real Space.
+       7 
+       9 
+         ath** = ifind's OpenAI path (`mongo-runner/output.json`, 
+     … +212 lines (ctrl+o to expand)
+
+  Searched for 1 pattern, ran 2 shell commands (ctrl+o to expand)
+
+● Stages 15 and 16 are done and staged, except the three review points I
+  couldn't close myself. Since you said no to editing ifind/, nothing in it was
+  touched.
+
+  Stage 15 (ifind)
+  - I wrote the change as a patch file, deploy/ifind_resumeParser.patch. A
+    dry-run with git apply --check against the current lib/resumeParser.ts
+    applies cleanly.
+  - It makes two small changes: the service URL comes from the env var
+    RESUME_EXTRACTOR_URL (default is the planned v3 Space), and
+    normaliseHFOutput passes through any response that already has metaDetails.
+    The 60 s timeout is unchanged.
+  - To apply it: cd ifind && git apply 
+    ../resume-extractor-v3/deploy/ifind_resumeParser.patch.
+  - Until the v3 Space exists, set RESUME_EXTRACTOR_URL or keep the old URL.
+  - I only report the OpenAI path (the code that asks OpenAI to read the PDF).
+    It sends a PDF as an image_url, which the chat API doesn't accept, so it
+    very likely always fails. I propose making v3 the only path once the gold is
+    verified and the targets are met, and removing it then.
+
+  Stage 16 (final report): reports/FINAL.md has the metrics, per-section
+  strengths and weaknesses, the 10 worst failures with causes, latency and
+  memory, next steps, and the Stage 15 report. The README now covers running
+  locally, running the eval, adding a gold resume, retraining and deploying.
+
+  What the final report shows
+  - v3 beats v2 and the AI path on every metric.
+  - On entity F1 for work, education and projects, the hosted-LLM output still
+    beats v3 by about 0.15–0.25 on this gold, and I say so in the report.
+  - v3's advantages are the contact fields (name, email, phone 100%), almost no
+    invented text (0.15%), always-valid output, deterministic results, about 1 s
+    per resume on 2 CPU cores, and no per-resume cost.
+  - All accuracy numbers are on gold I drafted myself and nobody has verified.
+    The Space isn't deployed, so latency, memory and Docker image size aren't
+    measured on the real thing.
+
+  Waiting on you
+  1. Checkpoint 16A: your final review of reports/FINAL.md.
+  2. Checkpoint 14A: say go and I push to a new Space (suggested name
+     seudoe/resume-extractor-v3).
+  3. Checkpoints 14B and 15B: once it's deployed and the patch is applied, you
+     test upload and re-extract in the running ifind app.
+
+  Before those, the most valuable thing you can do is verify the gold files in
+  data/gold/drafts/, header_gold.json and section_gold.json. Until then none of
+  the numbers count as reported accuracy.
+
+  Commit message:
+  Stage 15-16: ifind patch (not applied), final report, README handover
+
+  - deploy/ifind_resumeParser.patch: RESUME_EXTRACTOR_URL + metaDetails 
+  pass-through (ifind/ untouched, git apply --check ok)
+  - reports/FINAL.md: v2 / AI path / LLM JSON / v3 comparison on the 32-resume 
+  gold, worst 10, next steps, Stage 15 report
+  - README: eval commands, adding a gold resume; header/section/baseline reports
+
+  Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+✻ Worked for 5m 51s · done Monday 8:41 PM
+
+※ recap: We built an LLM-free resume extractor, and all stages are now staged, with the final report written. Next: review reports/FINAL.md and tell me whether to push the Space.
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ btw one important about ifind - resumeExtractor is to be deployed on          
+  somewhere - so the only thing that needs to be chnaged in ifind is resume     
+  extractors url - so there wont be any problem i think for now -               
+  1. Explain resume-extractor-v3 in a markdown - include everything in it -     
+  tools, frameworks, algos, libs, specially the Model we trained what really is 
+  that                                                                          
+  2. tell me how to retrain the model on all PDFs to JSONs in resume-data -     
+  there are 2k i think pdfs -- first thing tell me if they are right to train,  
+  because all have same layout and details are similar its just that data is    
+  diff - sections are diff and profession are diff                              
+  ⎿  1 skill available
+
+  Listed 1 directory, ran 4 shell commands (ctrl+o to expand)
+
+● Write(docs\EXPLAINED.md)
+  ⎿  Wrote 188 lines to docs\EXPLAINED.md
+       1 # resume-extractor-v3, explained
+       3 A plain-language tour of everything in `resume-extractor-v3`: wh
+         es, and what the
+         elopment gold (hand-drafted, **not yet verified by a human**), s
+       5 
+       6 ## 1. What it is, in one paragraph
+       8 You give it a resume (PDF or DOCX). It gives you back a JSON obj
+          history, education,
+         t does this **without asking a large language model to write the
+      10 page like a human woul
+     … +355 lines (ctrl+o to expand)
+
+● Write(docs\RETRAINING.md)
+  ⎿  Wrote 71 lines to docs\RETRAINING.md
+       1 # Retraining the model on the PDFs and JSONs in `resume-data`
+       3 ## 1. First: are those PDFs and JSONs right to train on?
+       4 
+         ls for this model, and "all of them" would mostly repeat what th
+         e model already has.**
+       7 
+       8 | question | finding |
+      10 | How many are there? | 2,484 LiveCareer PDFs in 24 profession f
+         olders (+ 32 real resumes in `AAA`). **LLM JSONs exist for only 
+          |
+     … +130 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Both documents are written and staged, not committed.
+
+  On ifind: you're right. The service still returns the legacy _meta object next
+  to metaDetails, so ifind works unchanged and only the URL needs to change.
+  The second half of my patch (passing metaDetails through) is optional cleanup.
+
+  1. Explanation: docs/EXPLAINED.md covers the 10-stage pipeline stage by stage,
+  plus all the tools, the libraries table, the algorithms, the evaluation
+  caveats and where everything lives.
+
+  The trained model, in short:
+  - It is not an LLM and doesn't write text. It is a schema-conditioned span
+    tagger.
+  - The base is GLiNER2.5, which wraps DeBERTa-v3-base (a 12-layer encoder,
+    about 195 M parameters). You pass it a resume entry's text plus field
+    descriptions ("company: employer name"), and it points at the spans that
+    match.
+  - We added a LoRA adapter: small learned add-on matrices, 1.7 M of the 195 M
+    parameters, in a 7 MB file.
+  - It was trained on 7,965 entry blocks, from synthetic resumes (exact labels)
+    and LiveCareer resumes (labels from their HTML tags). No LLM was involved.
+  - It lifted job-title F1 from 71 to 97 and company from 83 to 94 on template
+    layouts it never saw.
+
+  2. Retraining on resume-data: docs/RETRAINING.md has the verdict, the evidence
+  and the exact commands.
+
+  Are those PDFs and JSONs right to train on? Mostly no. Measured on the files:
+  - Layout is not diverse: all 150 sampled PDFs use the same font and 82% are
+    single-column. Another 2,400 of them won't teach the model new layouts,
+    which is where its real weakness is.
+  - The content is useful: 24 professions help with non-tech job titles and
+    schools, since my synthetic data is mostly IT roles.
+  - The JSONs are bad labels: 91% of work entries in the existing JSONs have no
+    company or the literal "Company Name", because the source resumes are
+    anonymised. Only 289 of the 2,484 JSONs exist so far; your generation is
+    still running.
+  - The HTML tags are better: they give exact labels for the same PDFs, already
+    aligned at 99.9%, and 92.5% of the HTML titles also appear in the JSONs.
+
+  Recommended plan:
+  1. Use all LiveCareer PDFs through the HTML tags, not the JSONs, capped at
+     about a third of the training blocks.
+  2. Keep the eval pool and gold held out.
+  3. Add new layouts rather than more of the same ones.
+  4. Accept the new model only if gold F1 doesn't drop.
+
+  The doc gives the five commands for this, including the swap to GPU torch and
+  back.
+
+  Do you want me to write the converter that uses the JSONs only where they
+  agree with the HTML tags? That would add certifications, awards and
+  affiliations as training data.
+✻ Crunched for 4m 4s · done 12:03 AM
+
+※ recap: We're building resume-extractor-v3, an LLM-free resume-to-JSON service. All stages are built; I just delivered the explanation and retraining docs. Next, you decide whether I write the converter that uses the LLM JSONs only where they agree with the HTML tags.
+
+
+
+
+
+
+----------------------------------
+
+
+
+
+
+
+
+❯ /export resume-extractor-v3-CHAT.md                                           
+  ⎿  Conversation exported to: C:\Users\4dmin\Downloads\iFind30\resume-extractor
+     -v3\resume-extractor-v3-CHAT.md

@@ -16,3 +16,7 @@ models/*.gguf
 PROMPT.md
 *.md
 !README.md
+**/.env.repo
+**/**.repo
+**/.env.local
+**/**.local

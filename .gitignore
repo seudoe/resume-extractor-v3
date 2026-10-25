@@ -48,3 +48,12 @@ runs/
 # needed by the Dockerfile / scripts/fetch_models.py
 !models/MODEL_CHECKSUMS.txt
 kaggle/*.zip
+
+
+**/.env.repo
+**/**.repo
+**/.env.local
+**/**.local
+
+
+resume-extractor-OUTPUT-**

@@ -37,8 +37,11 @@ _state: dict = {"started": time.time(), "startup_ms": None, "warmup_ms": None, "
 
 
 def git_sha() -> str:
-    if os.environ.get("RX3_GIT_SHA"):
+    if os.environ.get("RX3_GIT_SHA", "unknown") != "unknown":
         return os.environ["RX3_GIT_SHA"]
+    stamp = Path(__file__).resolve().parents[2] / "GIT_SHA"   # written by scripts/deploy_hf_space.sh
+    if stamp.exists():
+        return stamp.read_text().strip()[:7] or "unknown"
     try:
         out = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=Path(__file__).resolve().parent, capture_output=True, text=True, timeout=3)
         return out.stdout.strip() or "unknown"

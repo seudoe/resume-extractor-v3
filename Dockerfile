@@ -29,6 +29,7 @@ RUN uv sync --frozen --no-dev --extra gliner
 RUN python scripts/fetch_models.py
 ENV HF_HUB_OFFLINE=1
 
+COPY GIT_SHA* ./
 ARG GIT_SHA=unknown
 ENV RX3_GIT_SHA=$GIT_SHA
 

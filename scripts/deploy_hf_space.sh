@@ -18,6 +18,7 @@ T=$(mktemp -d)
 cp Dockerfile pyproject.toml uv.lock "$T"/
 cp -r src types scripts "$T"/
 mkdir -p "$T/models" && cp -r models/adapters models/MODEL_CHECKSUMS.txt "$T/models"/
+echo "${GITHUB_SHA:-$(git rev-parse HEAD 2>/dev/null || echo dev)}" > "$T/GIT_SHA"
 cp deploy/HF_SPACE_README.md "$T/README.md"
 find "$T" -name __pycache__ -prune -exec rm -rf {} +
 cd "$T"

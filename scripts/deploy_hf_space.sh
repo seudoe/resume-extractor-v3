@@ -30,9 +30,13 @@ cp deploy/HF_SPACE_README.md "$T/README.md"
 find "$T" -name __pycache__ -prune -exec rm -rf {} +
 cd "$T"
 git init -q -b main
+git lfs install
+echo "*.safetensors filter=lfs diff=lfs merge=lfs -text" > .gitattributes
+echo "*.bin filter=lfs diff=lfs merge=lfs -text" >> .gitattributes
+git add .gitattributes
 git -c user.name=ci -c user.email=ci@users.noreply.github.com add -A
 git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -q -m "deploy ${GITHUB_SHA:-local}"
-git push -q --force "https://$HF_USER:$HF_TOKEN@huggingface.co/spaces/$ID" HEAD:main
+git push --force "https://$HF_USER:$HF_TOKEN@huggingface.co/spaces/$ID" HEAD:main
 
 # wait for build + start: stage must leave RUNNING (or 2 min pass) and come back as RUNNING with /health ok
 echo "pushed to $ID, waiting for $URL"

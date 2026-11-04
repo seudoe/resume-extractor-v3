@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-      - run: scripts/deploy_hf_space.sh
+      - run: bash scripts/deploy_hf_space.sh
         env:
           HF_USER: ${{ secrets.HF_USER_1 }}
           HF_TOKEN: ${{ secrets.HF_TOKEN_1 }}
@@ -31,7 +31,7 @@ jobs:
         n: [2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@v4
-      - run: scripts/deploy_hf_space.sh
+      - run: bash scripts/deploy_hf_space.sh
         env:
           HF_USER: ${{ secrets[format('HF_USER_{0}', matrix.n)] }}
           HF_TOKEN: ${{ secrets[format('HF_TOKEN_{0}', matrix.n)] }}

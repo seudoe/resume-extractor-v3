@@ -15,6 +15,11 @@ import shutil
 import subprocess
 import tempfile
 import time
+
+# Catalyst AppSail sets HOME=/catalyst (not writable); ensure HOME points to a writable directory
+if not os.access(os.path.expanduser("~"), os.W_OK):
+    _home = "/opt/home" if os.access("/opt/home", os.W_OK) else tempfile.gettempdir()
+    os.environ["HOME"] = _home
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path

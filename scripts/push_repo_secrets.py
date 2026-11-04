@@ -66,9 +66,9 @@ def parse_env_file(path: Path) -> tuple[str | None, dict[str, str]]:
                 current_pair.clear()
 
     # Alias first account as HF_USER_1 / HF_TOKEN_1 if not already explicit
-    for idx, p in enumerate(pairs, start=1):
-        secrets.setdefault(f"HF_USER_{idx}", p["user"])
-        secrets.setdefault(f"HF_TOKEN_{idx}", p["token"])
+    if pairs and "HF_USER_1" not in secrets:
+        secrets["HF_USER_1"] = pairs[0]["user"]
+        secrets["HF_TOKEN_1"] = pairs[0]["token"]
 
     return gh_token, secrets
 

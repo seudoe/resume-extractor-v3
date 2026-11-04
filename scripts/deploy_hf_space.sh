@@ -12,10 +12,13 @@ AUTH=(-H "Authorization: Bearer $HF_TOKEN")
 SUB=$(echo "$HF_USER-$HF_SPACE" | tr 'A-Z_' 'a-z-')
 URL="https://$SUB.hf.space"
 
-# create (private, docker) if missing; 409 = already exists
-code=$(curl -s -o /dev/null -w '%{http_code}' "${AUTH[@]}" -H 'content-type: application/json' \
-  -d "{\"type\":\"space\",\"name\":\"$HF_SPACE\",\"sdk\":\"docker\",\"private\":true}" https://huggingface.co/api/repos/create)
-[[ "$code" == 200 || "$code" == 409 ]] || { echo "create space failed: HTTP $code"; exit 1; }
+# check if space exists before creating to avoid 402 on pre-existing spaces
+space_status=$(curl -s -o /dev/null -w '%{http_code}' "${AUTH[@]}" "https://huggingface.co/api/spaces/$ID")
+if [[ "$space_status" != "200" ]]; then
+  code=$(curl -s -o /dev/null -w '%{http_code}' "${AUTH[@]}" -H 'content-type: application/json' \
+    -d "{\"type\":\"space\",\"name\":\"$HF_SPACE\",\"sdk\":\"docker\",\"private\":true}" https://huggingface.co/api/repos/create)
+  [[ "$code" == 200 || "$code" == 409 ]] || { echo "create space failed: HTTP $code"; exit 1; }
+fi
 
 # only what the Dockerfile COPYs, plus the Space README
 T=$(mktemp -d)

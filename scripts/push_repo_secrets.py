@@ -170,10 +170,10 @@ To fix this:
         }
         res = gh_api_request(f"{api_base}/{name}", gh_token, method="PUT", data=payload)
         if res.get("_status") in (None, 201, 204):
-            print(f"  ✓ set {name}")
+            print(f"  + set {name}")
             success += 1
         else:
-            print(f"  ✗ FAILED {name} (HTTP {res.get('_status')}): {res.get('message')}", file=sys.stderr)
+            print(f"  ! FAILED {name} (HTTP {res.get('_status')}): {res.get('message')}", file=sys.stderr)
 
     print(f"\nDone. Successfully set {success}/{len(secrets)} secrets.")
 

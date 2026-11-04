@@ -2,7 +2,11 @@
 # Push a trimmed copy of the repo to one HF Space (created private if missing), then wait until it is healthy.
 # usage: HF_USER=.. HF_TOKEN=.. HF_SPACE=.. scripts/deploy_hf_space.sh
 set -euo pipefail
-: "${HF_USER:?}" "${HF_TOKEN:?}" "${HF_SPACE:?}"
+if [[ -z "${HF_USER:-}" || -z "${HF_TOKEN:-}" ]]; then
+  echo "HF_USER or HF_TOKEN is not set; skipping deployment for this slot."
+  exit 0
+fi
+: "${HF_SPACE:?}"
 ID="$HF_USER/$HF_SPACE"
 AUTH=(-H "Authorization: Bearer $HF_TOKEN")
 SUB=$(echo "$HF_USER-$HF_SPACE" | tr 'A-Z_' 'a-z-')

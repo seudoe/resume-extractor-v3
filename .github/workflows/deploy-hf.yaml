@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  HF_SPACE: ${{ vars.HF_SPACE || 'resume-extractor-v3' }}
+  HF_SPACE: ${{ secrets.HF_SPACE || vars.HF_SPACE || 'resume-extract' }}
 
 jobs:
   canary:
@@ -19,6 +19,7 @@ jobs:
         env:
           HF_USER: ${{ secrets.HF_USER_1 }}
           HF_TOKEN: ${{ secrets.HF_TOKEN_1 }}
+          HF_SPACE: ${{ secrets.HF_SPACE || vars.HF_SPACE || 'resume-extract' }}
 
   rest:
     needs: canary
@@ -35,3 +36,4 @@ jobs:
         env:
           HF_USER: ${{ secrets[format('HF_USER_{0}', matrix.n)] }}
           HF_TOKEN: ${{ secrets[format('HF_TOKEN_{0}', matrix.n)] }}
+          HF_SPACE: ${{ secrets.HF_SPACE || vars.HF_SPACE || 'resume-extract' }}

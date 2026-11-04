@@ -25,9 +25,8 @@ COPY models/adapters ./models/adapters
 COPY models/MODEL_CHECKSUMS.txt ./models/MODEL_CHECKSUMS.txt
 RUN uv sync --frozen --no-dev --extra gliner
 
-# 3) bake the pinned base model into the image and verify checksums (build fails on a mismatch); run offline afterwards
+# 3) bake the pinned base model into the image and verify checksums (build fails on a mismatch)
 RUN python scripts/fetch_models.py
-ENV HF_HUB_OFFLINE=1
 
 COPY GIT_SHA* ./
 ARG GIT_SHA=unknown

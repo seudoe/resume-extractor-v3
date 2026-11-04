@@ -21,6 +21,7 @@ from pathlib import Path
 
 CACHE_PATH = Path(__file__).resolve().parents[4] / "data" / "cache" / "gliner_cache.json"
 MODEL_ID = "fastino/gliner2.5-base-v1"
+MODEL_REV = os.environ.get("RX3_GLINER_REVISION", "ca906247640776a07753514055be9726f9080ead")
 DEFAULT_ADAPTER = Path(__file__).resolve().parents[4] / "models" / "adapters" / "rx3-entry-lora"
 MAX_BLOCK_CHARS = 600
 THRESHOLD = 0.3  # low on purpose: the merge step applies the real per-field cut-off using the returned confidence
@@ -128,7 +129,10 @@ class GlinerRefiner:
 
             torch.set_num_threads(int(os.environ.get("RX3_TORCH_THREADS", "2")))
             device = os.environ.get("RX3_GLINER_DEVICE")  # e.g. "cuda" for evals on a GPU box; production stays on CPU
-            self.model = AutoExtractor.from_pretrained(MODEL_ID, map_location=device) if device else AutoExtractor.from_pretrained(MODEL_ID)
+            kw = {"revision": MODEL_REV}
+            if device:
+                kw["map_location"] = device
+            self.model = AutoExtractor.from_pretrained(MODEL_ID, **kw)
             if self.adapter:  # merged into the base weights: an unmerged PEFT adapter made CPU inference ~3x slower
                 from peft import PeftModel
 

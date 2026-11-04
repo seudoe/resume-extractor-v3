@@ -37,6 +37,14 @@ def main() -> None:
         bad.append(str(adapter))
     if bad:
         sys.exit(f"checksum mismatch: {bad}")
+    try:
+        from huggingface_hub.constants import HF_HUB_CACHE
+        cache_repo = Path(HF_HUB_CACHE) / f"models--{REPO.replace('/', '--')}"
+        refs_dir = cache_repo / "refs"
+        refs_dir.mkdir(parents=True, exist_ok=True)
+        (refs_dir / "main").write_text(REV, encoding="utf-8")
+    except Exception as e:
+        print(f"Warning: could not write refs/main: {e}")
     print("models ok:", REPO, REV[:8], "+ adapter")
 
 
